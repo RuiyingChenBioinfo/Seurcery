@@ -1,0 +1,21 @@
+utils::globalVariables(c(
+  "x",
+  "y",
+  "poly_id",
+  "alpha_val",
+  "outline_id",
+  ".x",
+  ".y",
+  ".fill",
+  ".y_anchor",
+  "x_num",
+  "y_plot",
+  "size_val",
+  "fill_col",
+  "border_col",
+  "y_star",
+  "star",
+  "s",
+  "lab",
+  "val"
+))

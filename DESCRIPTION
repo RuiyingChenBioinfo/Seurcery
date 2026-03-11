@@ -1,0 +1,17 @@
+Package: Seurcery
+Title: Visualization Utilities for 'Seurat' Objects
+Version: 0.1.0
+Authors@R: 
+    person(given = "Ruiying", family = "Chen", email = "chenruiying@genomics.cn", role = c("aut", "cre"))
+Description: Provides functions that extend and refine visualization
+    workflows for 'Seurat' objects, with an emphasis on clearer and more
+    intuitive presentation of single-cell analysis results.
+License:  GPL-3
+Imports:
+    ggplot2,
+    patchwork,
+    rlang,
+    scales
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
