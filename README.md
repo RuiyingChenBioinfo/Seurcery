@@ -1,12 +1,12 @@
 # Seurcery
 
-<img src="https://github.com/RuiyingChenBioinfo/Seurcery/blob/master/vignettes/Logo-Seurcery.png" align="right" width="120" height="130">
+<img src="https://github.com/RuiyingChenBioinfo/Seurcery/blob/master/vignettes/Logo-Seurcery.png" align="right" width="115" height="130">
 
-An R package designed for refined visualization based on R package Seurat.
+An R package designed for optimized visualization based on R package Seurat.
 
 Contact: 
 * Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
-* Yixiao Wang ()
+* Yixiao Wang (wangyixiao21@mails.ucas.ac.cn)
 
 # Installation
 
@@ -24,7 +24,7 @@ remotes::install_github("RuiyingChenBioinfo/Seurcery@master", dependencies = FAL
 ```
 
 # Tutorial
-Please refer to [Tutorial html]().
+Please refer to [Tutorial html](Seurcery_v0.8.5_tutorial.html).
 
 # Citation
 If you use Seurcery, please cite:

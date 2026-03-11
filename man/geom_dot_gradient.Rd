@@ -2,14 +2,13 @@
 % Please edit documentation in R/utils_geom_dot_gradient.R
 \name{geom_dot_gradient}
 \alias{geom_dot_gradient}
-\title{Add dot summaries with alpha gradients below violin plots}
+\title{Add dot summaries below violin plots}
 \usage{
 geom_dot_gradient(
   expr_cutoff = 0,
   group_cols = NULL,
   alpha_max = 1,
   alpha_min = 0,
-  direction = 1,
   low_quantile = 0,
   mid_quantile = 0.5,
   high_quantile = 1,
@@ -19,36 +18,34 @@ geom_dot_gradient(
   layer = NULL,
   dot_shape = 21,
   dot_stroke = 0.15,
-  y_offset = 0.1,
   dodge_width = 0.9,
-  star_offset = 0.012,
   star_size = 4.5,
   sig_test_all = NULL,
   sig_adjust = "BH",
   sig_cutoffs = c(`***` = 0.001, `**` = 0.01, `*` = 0.05),
   guide = TRUE,
-  guide_width = 0.32,
+  guide_width = 0.42,
   guide_size_breaks = c(0, 20, 40, 60, 80, 100),
   guide_title_size = 12,
   guide_label_size = 10,
   guide_bar_n = 200,
   guide_bar_low = "grey97",
-  guide_bar_high = "grey15"
+  guide_bar_high = "grey15",
+  y_axis_min = -1,
+  min_avg_pct_diff = 0.2
 )
 }
 \arguments{
 \item{expr_cutoff}{Expression cutoff used to define whether a value is
 expressed.}
 
-\item{group_cols}{Optional vector of fill colors for split groups. Can be
-named or unnamed.}
+\item{group_cols}{Optional vector of colors. When \code{split.by} is used, its
+length must equal the number of split groups. When \code{split.by} is not used,
+its length must equal the number of x groups.}
 
 \item{alpha_max}{Maximum alpha value.}
 
 \item{alpha_min}{Minimum alpha value.}
-
-\item{direction}{Gradient direction. Use \code{1} for low to high alpha from low
-average expression to high average expression, and \code{-1} for the reverse.}
 
 \item{low_quantile}{Lower anchor point of the alpha interpolation, in
 \verb{[0, 1]}.}
@@ -74,13 +71,7 @@ automatically.}
 
 \item{dot_stroke}{Stroke width for the summary dots.}
 
-\item{y_offset}{Vertical offset of summary dots below the violin panel,
-expressed as a fraction of y-range.}
-
 \item{dodge_width}{Horizontal spread used to separate split groups.}
-
-\item{star_offset}{Vertical offset for significance stars, expressed as a
-fraction of y-range.}
 
 \item{star_size}{Text size for significance stars.}
 
@@ -89,7 +80,7 @@ fraction of y-range.}
 
 \item{sig_adjust}{Adjustment method passed to \code{stats::p.adjust()}.}
 
-\item{sig_cutoffs}{Named numeric vector defining p-value cutoffs for
+\item{sig_cutoffs}{Named numeric vector defining p value cutoffs for
 significance stars.}
 
 \item{guide}{Logical. Whether to draw the side guide panel.}
@@ -110,6 +101,12 @@ bar.}
 \item{guide_bar_low}{Low color for the average expression guide bar.}
 
 \item{guide_bar_high}{High color for the average expression guide bar.}
+
+\item{y_axis_min}{Lower bound for the y axis. Default is \code{-1}.}
+
+\item{min_avg_pct_diff}{Minimum absolute difference in expressed proportion
+required for significance stars to be shown. Uses proportion scale in
+\verb{[0, 1]}. Default \code{0.1} means at least 10 percentage points.}
 }
 \value{
 An object of class \code{"geom_dot_gradient"} that can be added to a
@@ -120,10 +117,16 @@ Creates a lightweight layer-like object that can be added to a ggplot object
 with \code{+}. The corresponding S3 method \code{ggplot_add.geom_dot_gradient()}
 extracts plotting data from an existing violin plot, calculates expressed
 percentage and average expression for each x and split group, and draws
-summary dots with gradient alpha, optional significance labels, and an
-optional side guide panel.
+summary dots below the violin panel, with optional significance labels and
+an optional side guide panel.
 }
 \details{
 This function supports both a single ggplot violin plot and a patchwork
-object returned by \code{Seurat::VlnPlot()} when multiple features are combined.
+object such as that returned by \code{Seurat::VlnPlot()} when multiple features
+are combined.
+
+When \code{split.by} is not used in \code{Seurat::VlnPlot()}, Seurat often maps fill to
+the same grouping variable as x. In that case, this function automatically
+collapses the comparison structure to one dot per x group, but the dot color
+still follows x groups so each identity can have a different color.
 }
