@@ -71,10 +71,10 @@ geom_vln_gradient <- function(
 #' @param plot A ggplot object or a patchwork object.
 #' @param object_name Not used.
 #'
-#' @return A ggplot object or a patchwork object with reconstructed violin
-#'   polygons.
+#' @return A ggplot object or a patchwork object with reconstructed violin polygons.
 #' @importFrom ggplot2 ggplot_add
-#' @exportS3Method ggplot2::ggplot_add
+#' @method ggplot_add geom_vln_gradient
+#' @export
 ggplot_add.geom_vln_gradient <- function(object, plot, object_name) {
   `%||%` <- function(x, y) {
     if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x

@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils_geom_dot_gradient.R
 \name{ggplot_add.geom_dot_gradient}
 \alias{ggplot_add.geom_dot_gradient}
-\title{Add a dot gradient layer to a ggplot object}
+\title{Add dot summaries with alpha gradients below violin plots}
 \usage{
 \method{ggplot_add}{geom_dot_gradient}(object, plot, object_name)
 }
@@ -14,7 +14,7 @@
 \item{object_name}{Not used.}
 }
 \value{
-A ggplot object or a patchwork-combined plot.
+A ggplot object or a patchwork object with summary dots.
 }
 \description{
 S3 method for adding a \code{"geom_dot_gradient"} object to a ggplot.

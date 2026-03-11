@@ -14,8 +14,7 @@
 \item{object_name}{Not used.}
 }
 \value{
-A ggplot object or a patchwork object with reconstructed violin
-polygons.
+A ggplot object or a patchwork object with reconstructed violin polygons.
 }
 \description{
 S3 method for adding a \code{"geom_vln_gradient"} object to a ggplot.

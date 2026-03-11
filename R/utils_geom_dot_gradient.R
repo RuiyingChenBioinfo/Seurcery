@@ -126,7 +126,7 @@ geom_dot_gradient <- function(
   )
 }
 
-#' Add a dot gradient layer to a ggplot object
+#' Add dot summaries with alpha gradients below violin plots
 #'
 #' S3 method for adding a `"geom_dot_gradient"` object to a ggplot.
 #'
@@ -134,9 +134,10 @@ geom_dot_gradient <- function(
 #' @param plot A ggplot object or a patchwork object.
 #' @param object_name Not used.
 #'
-#' @return A ggplot object or a patchwork-combined plot.
+#' @return A ggplot object or a patchwork object with summary dots.
 #' @importFrom ggplot2 ggplot_add
-#' @exportS3Method ggplot2::ggplot_add
+#' @method ggplot_add geom_dot_gradient
+#' @export
 ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   `%||%` <- function(x, y) {
     if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x
