@@ -35,8 +35,8 @@ automatically.}
 
 \item{outline}{Logical. Whether to redraw violin outlines.}
 
-\item{outline_size}{Optional outline width. If \code{NULL}, uses the linewidth in
-the source violin layer when available.}
+\item{outline_size}{Optional outline width. If \code{NULL}, uses the linewidth
+in the source violin layer when available.}
 
 \item{min_width_frac}{Minimum local width threshold, expressed as a fraction
 of the maximum violin width, below which thin polygon slices are skipped.}
@@ -59,4 +59,8 @@ Creates a lightweight layer-like object that can be added to a ggplot object
 with \code{+}. The object is handled by the S3 method
 \code{ggplot_add.geom_vln_gradient()}, which reconstructs violin polygons from an
 existing violin layer and fills them with an alpha gradient along the y axis.
+}
+\details{
+This function supports both a single ggplot violin plot and a patchwork
+object returned by \code{Seurat::VlnPlot()} when multiple features are combined.
 }

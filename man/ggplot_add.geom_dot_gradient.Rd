@@ -4,17 +4,17 @@
 \alias{ggplot_add.geom_dot_gradient}
 \title{Add a dot gradient layer to a ggplot object}
 \usage{
-ggplot_add.geom_dot_gradient(object, plot, object_name)
+\method{ggplot_add}{geom_dot_gradient}(object, plot, object_name)
 }
 \arguments{
 \item{object}{An object created by \code{\link[=geom_dot_gradient]{geom_dot_gradient()}}.}
 
-\item{plot}{A ggplot object.}
+\item{plot}{A ggplot object or a patchwork object.}
 
 \item{object_name}{Not used.}
 }
 \value{
-A ggplot object or a patchwork combined plot.
+A ggplot object or a patchwork-combined plot.
 }
 \description{
 S3 method for adding a \code{"geom_dot_gradient"} object to a ggplot.

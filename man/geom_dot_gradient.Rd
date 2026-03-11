@@ -123,3 +123,7 @@ percentage and average expression for each x and split group, and draws
 summary dots with gradient alpha, optional significance labels, and an
 optional side guide panel.
 }
+\details{
+This function supports both a single ggplot violin plot and a patchwork
+object returned by \code{Seurat::VlnPlot()} when multiple features are combined.
+}

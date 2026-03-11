@@ -4,17 +4,18 @@
 \alias{ggplot_add.geom_vln_gradient}
 \title{Add a gradient violin layer to a ggplot object}
 \usage{
-ggplot_add.geom_vln_gradient(object, plot, object_name)
+\method{ggplot_add}{geom_vln_gradient}(object, plot, object_name)
 }
 \arguments{
 \item{object}{An object created by \code{\link[=geom_vln_gradient]{geom_vln_gradient()}}.}
 
-\item{plot}{A ggplot object.}
+\item{plot}{A ggplot object or a patchwork object.}
 
 \item{object_name}{Not used.}
 }
 \value{
-A ggplot object with reconstructed violin polygons.
+A ggplot object or a patchwork object with reconstructed violin
+polygons.
 }
 \description{
 S3 method for adding a \code{"geom_vln_gradient"} object to a ggplot.
