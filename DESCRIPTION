@@ -1,6 +1,6 @@
 Package: Seurcery
 Title: Optimized Visualization Utilities for 'Seurat' Objects
-Version: 0.8.5
+Version: 0.8.6
 Authors@R: 
     person(given = "Ruiying", family = "Chen", email = "chenruiying@genomics.cn", role = c("aut", "cre"))
 Description: Provides functions that extend and refine visualization

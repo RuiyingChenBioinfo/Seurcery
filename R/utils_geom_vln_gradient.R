@@ -482,7 +482,12 @@ ggplot_add.geom_vln_gradient <- function(object, plot, object_name) {
 
     poly_df <- do.call(rbind, poly_list)
 
-    plot_single$layers[[violin_layer]]$aes_params$fill <- NA
+    #plot_single$layers[[violin_layer]]$aes_params$fill <- NA
+    #plot_single$layers[[violin_layer]]$aes_params$colour <- NA
+    #plot_single$layers[[violin_layer]]$aes_params$color <- NA
+    plot_single$layers[[violin_layer]]$aes_params$alpha <- 0
+    plot_single$layers[[violin_layer]]$aes_params$linewidth <- 0
+    plot_single$layers[[violin_layer]]$aes_params$size <- 0
     plot_single$layers[[violin_layer]]$aes_params$colour <- NA
     plot_single$layers[[violin_layer]]$aes_params$color <- NA
 

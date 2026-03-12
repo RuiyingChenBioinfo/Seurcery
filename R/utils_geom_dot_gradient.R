@@ -734,6 +734,7 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   )
 }
 
+if (FALSE) {
 .geom_dot_gradient_build_star_df <- function(
     dat,
     x_levels,
@@ -880,6 +881,180 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   p_df$.fill <- factor(p_df$.fill, levels = fill_levels)
   p_df$y_plot <- star_base_y
   p_df
+}
+}
+
+.geom_dot_gradient_build_star_df <- function(
+    dat,
+    x_levels,
+    fill_levels,
+    collapsed_fill,
+    star_base_y,
+    object
+) {
+  if (is.null(object$sig_test_all)) {
+    return(NULL)
+  }
+
+  if (isTRUE(collapsed_fill) || length(fill_levels) <= 1) {
+    p_tab <- list()
+
+    for (xx in x_levels) {
+      g1 <- dat$.y[dat$.x == xx]
+      g2 <- dat$.y[dat$.x != xx]
+
+      if (length(g1) == 0 || length(g2) == 0) {
+        next
+      }
+
+      pct1 <- mean(g1 > object$expr_cutoff, na.rm = TRUE)
+      pct2 <- mean(g2 > object$expr_cutoff, na.rm = TRUE)
+      pct_diff <- abs(pct1 - pct2)
+
+      p_val <- tryCatch(
+        {
+          if (object$sig_test_all == "wilcox") {
+            stats::wilcox.test(g1, g2, alternative = "greater")$p.value
+          } else {
+            stats::t.test(g1, g2, alternative = "greater")$p.value
+          }
+        },
+        error = function(e) NA_real_
+      )
+
+      p_tab[[length(p_tab) + 1]] <- data.frame(
+        .x = xx,
+        .fill = "All",
+        p = p_val,
+        pct_diff = pct_diff,
+        stringsAsFactors = FALSE
+      )
+    }
+
+    if (length(p_tab) == 0) {
+      return(NULL)
+    }
+
+    p_df <- do.call(rbind, p_tab)
+    p_df$p_adj <- stats::p.adjust(p_df$p, method = object$sig_adjust)
+    p_df$label <- vapply(
+      p_df$p_adj,
+      .geom_dot_gradient_p_to_star,
+      character(1),
+      cutoffs = object$sig_cutoffs
+    )
+
+    p_df <- p_df[
+      nzchar(p_df$label) &
+        is.finite(p_df$pct_diff) &
+        !is.na(p_df$pct_diff) &
+        p_df$pct_diff >= object$min_avg_pct_diff,
+      ,
+      drop = FALSE
+    ]
+
+    if (nrow(p_df) == 0) {
+      return(NULL)
+    }
+
+    p_df$.x <- factor(p_df$.x, levels = x_levels)
+    p_df$.fill <- factor(p_df$.fill, levels = fill_levels)
+    p_df$y_plot <- star_base_y
+    return(p_df)
+  }
+
+  p_tab <- list()
+
+  for (xx in x_levels) {
+    for (ff in fill_levels) {
+      idx1 <- dat$.x == xx & dat$.fill == ff
+      idx2 <- !idx1
+
+      g1 <- dat$.y[idx1]
+      g2 <- dat$.y[idx2]
+
+      if (length(g1) == 0 || length(g2) == 0) {
+        next
+      }
+
+      pct1 <- mean(g1 > object$expr_cutoff, na.rm = TRUE)
+      pct2 <- mean(g2 > object$expr_cutoff, na.rm = TRUE)
+      pct_diff <- abs(pct1 - pct2)
+
+      p_val <- tryCatch(
+        {
+          if (object$sig_test_all == "wilcox") {
+            stats::wilcox.test(g1, g2, alternative = "greater")$p.value
+          } else {
+            stats::t.test(g1, g2, alternative = "greater")$p.value
+          }
+        },
+        error = function(e) NA_real_
+      )
+
+      p_tab[[length(p_tab) + 1]] <- data.frame(
+        .x = xx,
+        .fill = ff,
+        p = p_val,
+        pct_diff = pct_diff,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  if (length(p_tab) == 0) {
+    return(NULL)
+  }
+
+  p_df <- do.call(rbind, p_tab)
+  p_df$p_adj <- stats::p.adjust(p_df$p, method = object$sig_adjust)
+  p_df$label <- vapply(
+    p_df$p_adj,
+    .geom_dot_gradient_p_to_star,
+    character(1),
+    cutoffs = object$sig_cutoffs
+  )
+
+  p_df <- p_df[
+    nzchar(p_df$label) &
+      is.finite(p_df$pct_diff) &
+      !is.na(p_df$pct_diff) &
+      p_df$pct_diff >= object$min_avg_pct_diff,
+    ,
+    drop = FALSE
+  ]
+
+  if (nrow(p_df) == 0) {
+    return(NULL)
+  }
+
+  full_df <- expand.grid(
+    .x = x_levels,
+    .fill = fill_levels,
+    KEEP.OUT.ATTRS = FALSE,
+    stringsAsFactors = FALSE
+  )
+
+  p_df <- merge(
+    full_df,
+    p_df,
+    by = c(".x", ".fill"),
+    all.x = TRUE,
+    sort = FALSE
+  )
+
+  p_df$.x <- factor(p_df$.x, levels = x_levels)
+  p_df$.fill <- factor(p_df$.fill, levels = fill_levels)
+  p_df <- p_df[order(p_df$.x, p_df$.fill), , drop = FALSE]
+
+  p_df$label[is.na(p_df$label)] <- ""
+  p_df$y_plot <- star_base_y
+
+  if (!any(nzchar(p_df$label))) {
+    return(NULL)
+  }
+
+  return(p_df)
 }
 
 #' @keywords internal
@@ -1131,8 +1306,8 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
       x = 1.2,
       y = max(guide_size_df$y) + 1.1,
       label = "Expressed\npercentage",
-      size = object$guide_title_size / 3,
-      fontface = "bold"
+      size = object$guide_title_size / 3#,
+      #fontface = "bold"
     ) +
     ggplot2::xlim(0.6, 3.6) +
     ggplot2::ylim(0.5, max(guide_size_df$y) + 1.8) +
@@ -1157,29 +1332,29 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
     ggplot2::annotate(
       "text",
       x = 1.15,
-      y = 1.09, #1.12
+      y = 1.2, #1.16
       label = "Average\nexpression",
-      size = object$guide_title_size / 3,
-      fontface = "bold"
+      size = object$guide_title_size / 3#,
+      #fontface = "bold"
     ) +
     ggplot2::annotate(
       "text",
-      x = 1.45,
-      y = 0,
+      x = 1.25, #1.45
+      y = 0.1,
       label = "Low",
       hjust = 0,
       size = object$guide_label_size / 3
     ) +
     ggplot2::annotate(
       "text",
-      x = 1.45,
-      y = 1,
+      x = 1.25, #1.45
+      y = 0.9, #1
       label = "High",
       hjust = 0,
       size = object$guide_label_size / 3
     ) +
     ggplot2::xlim(0.7, 2.25) +
-    ggplot2::ylim(-0.05, 1.18) +
+    ggplot2::ylim(-0.05, 1.28) +
     ggplot2::theme_void() +
     ggplot2::theme(
       legend.position = "none",

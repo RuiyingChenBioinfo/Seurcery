@@ -1,16 +1,20 @@
 # Seurcery
 
-<img src="https://github.com/RuiyingChenBioinfo/Seurcery/blob/master/vignettes/Logo-Seurcery.png" align="right" width="115" height="130">
+<img src="Public/Logo-Seurcery.png" align="right" width="115" height="135">
 
-An R package designed for optimized visualization based on R package Seurat.
+An R package designed for further analysis and visualization based on utilities of R package Seurat.
 
-Contact: 
-* Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
-* Yixiao Wang (wangyixiao21@mails.ucas.ac.cn)
+Please refer to [Tutorial html](Public/Seurcery_v0.8.6_tutorial.html) for detailed tutorials.
 
-# Installation
+<details> <summary> Note about package development </summary>
 
-## In R:
+Seurcery is under active development, so you may run into errors and small typos. We welcome users to write GitHub issues to report bugs, ask for help, and to request potential enhancements. 
+
+</details>
+
+## Installation
+
+In R:
 
 If dependencies (ggplot2, patchwork, rlang) are not installed:
 ```
@@ -23,9 +27,11 @@ install.packages("remotes")
 remotes::install_github("RuiyingChenBioinfo/Seurcery@master", dependencies = FALSE)
 ```
 
-# Tutorial
-Please refer to [Tutorial html](Seurcery_v0.8.5_tutorial.html).
-
-# Citation
+## Citation
 If you use Seurcery, please cite:
 
+Chen, R., Wang, Y., & Li, T. (2026). Seurcery (v0.8.6). Zenodo. https://doi.org/10.5281/zenodo.18962436
+
+## Contact
+* Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
+* Yixiao Wang (wangyixiao21@mails.ucas.ac.cn)
