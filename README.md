@@ -30,7 +30,7 @@ remotes::install_github("RuiyingChenBioinfo/Seurcery@master", dependencies = FAL
 ## Citation
 If you use Seurcery, please cite:
 
-Chen, R., Wang, Y., & Li, T. (2026). Seurcery (v0.8.6). Zenodo. https://doi.org/10.5281/zenodo.18962436
+Chen, R., Wang, Y., & Li, T. (2026). Seurcery: An R package designed for further analysis and visualization based on utilities of R package Seurat (v0.8.6). Zenodo. https://doi.org/10.5281/zenodo.18983549
 
 ## Contact
 * Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
