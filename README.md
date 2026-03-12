@@ -8,7 +8,7 @@ Please refer to [Tutorial html](Public/Seurcery_v0.8.6_tutorial.html) for detail
 
 <details> <summary> Note about package development </summary>
 
-Seurcery is under active development, so you may run into errors and small typos. We welcome users to write GitHub issues to report bugs, ask for help, and to request potential enhancements. 
+Seurcery is actively being developed. You may occasionally encounter bugs or minor documentation issues. GitHub issues are welcome for bug reports, usage questions, and feature suggestions.
 
 </details>
 
