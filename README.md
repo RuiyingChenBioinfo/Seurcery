@@ -105,10 +105,7 @@ The script plots 15 genes with both flip settings and both gradient orders,
 with and without dot guides.
 
 ## Citation
-The existing archived v0.8.6 release can be cited as follows. This DOI identifies
-v0.8.6; a DOI for v0.8.7 has not been assigned here.
-
-Chen, R., Wang, Y., & Li, T. (2026). Seurcery: An R package designed for further analysis and visualization based on utilities of R package Seurat (v0.8.6). Zenodo. https://doi.org/10.5281/zenodo.18983549
+Chen, R. (2026). Seurcery: An R package designed for further analysis and visualization based on utilities of R package Seurat (Version v0.8.7) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22953630
 
 ## Contact
 * Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
