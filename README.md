@@ -112,4 +112,3 @@ Chen, R., Wang, Y., & Li, T. (2026). Seurcery: An R package designed for further
 
 ## Contact
 * Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
-* Yixiao Wang (wangyixiao21@mails.ucas.ac.cn)
