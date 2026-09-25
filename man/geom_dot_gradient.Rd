@@ -102,11 +102,15 @@ bar.}
 
 \item{guide_bar_high}{High color for the average expression guide bar.}
 
-\item{y_axis_min}{Lower bound for the y axis. Default is \code{-1}.}
+\item{y_axis_min}{Requested lower bound of the expression axis (including
+horizontal violins). Default is \code{-1}. If this bound falls inside the data
+range or outside the scale's domain, space for the dots is added
+automatically below the displayed expression range. NULL also uses
+automatic placement.}
 
 \item{min_avg_pct_diff}{Minimum absolute difference in expressed proportion
 required for significance stars to be shown. Uses proportion scale in
-\verb{[0, 1]}. Default \code{0.1} means at least 10 percentage points.}
+\verb{[0, 1]}. Default \code{0.2} means at least 20 percentage points.}
 }
 \value{
 An object of class \code{"geom_dot_gradient"} that can be added to a
@@ -116,8 +120,9 @@ ggplot object.
 Creates a lightweight layer-like object that can be added to a ggplot object
 with \code{+}. The corresponding S3 method \code{ggplot_add.geom_dot_gradient()}
 extracts plotting data from an existing violin plot, calculates expressed
-percentage and average expression for each x and split group, and draws
-summary dots below the violin panel, with optional significance labels and
+percentage and average expression for each identity and split group within
+each facet, and draws summary dots beside the low end of the expression
+axis, with optional significance labels and
 an optional side guide panel.
 }
 \details{
@@ -129,4 +134,9 @@ When \code{split.by} is not used in \code{Seurat::VlnPlot()}, Seurat often maps 
 the same grouping variable as x. In that case, this function automatically
 collapses the comparison structure to one dot per x group, but the dot color
 still follows x groups so each identity can have a different color.
+Stacked Seurat plots retain feature colors and normalize average-expression
+alpha separately within each feature panel. Dot sizes use one common
+percentage scale across all panels of a faceted plot. Horizontal violins,
+transformed scales, and existing coordinates are preserved. The function
+can be combined with \code{\link[=geom_vln_gradient]{geom_vln_gradient()}} in either order.
 }

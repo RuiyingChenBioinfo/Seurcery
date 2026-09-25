@@ -19,15 +19,15 @@ geom_vln_gradient(
 )
 }
 \arguments{
-\item{bin}{Number of vertical bins used to reconstruct the gradient fill.
-Must be a single number greater than or equal to 2.}
+\item{bin}{Number of expression-axis bins used to reconstruct the gradient fill.
+Must be a finite integer greater than or equal to 2.}
 
 \item{alpha_max}{Maximum alpha value.}
 
 \item{alpha_min}{Minimum alpha value.}
 
 \item{direction}{Gradient direction. Use \code{1} for low to high alpha from low
-y to high y, and \code{-1} for the reverse.}
+expression to high expression, and \code{-1} for the reverse.}
 
 \item{layer}{Optional index of the violin layer in the ggplot object. If
 \code{NULL}, the function tries to detect the first violin-like layer
@@ -58,9 +58,16 @@ ggplot object.
 Creates a lightweight layer-like object that can be added to a ggplot object
 with \code{+}. The object is handled by the S3 method
 \code{ggplot_add.geom_vln_gradient()}, which reconstructs violin polygons from an
-existing violin layer and fills them with an alpha gradient along the y axis.
+existing violin layer and fills them with an alpha gradient along the
+expression axis, independently within each panel.
 }
 \details{
 This function supports both a single ggplot violin plot and a patchwork
 object returned by \code{Seurat::VlnPlot()} when multiple features are combined.
+Stacked Seurat plots retain their gene facets, manual colors, and orientation.
+Gradients are rendered after scales are trained, so fill scales may be added
+before or after this function. The quantile arguments are fractions of the
+panel's expression range on the plotted scale, not empirical quantiles.
+Both addition orders with \code{\link[=geom_dot_gradient]{geom_dot_gradient()}} are supported, including
+nested patchwork plots containing the dot guides.
 }

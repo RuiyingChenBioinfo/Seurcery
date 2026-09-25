@@ -1,18 +1,19 @@
 Package: Seurcery
 Title: Optimized Visualization Utilities for 'Seurat' Objects
-Version: 0.8.6
+Version: 0.8.7
 Authors@R: 
     person(given = "Ruiying", family = "Chen", email = "chenruiying@genomics.cn", role = c("aut", "cre"))
 Description: Provides functions that extend and refine visualization
     workflows for 'Seurat' objects, with an emphasis on clearer and more
     intuitive presentation of single-cell analysis results.
-License:  GPL-3
-Imports:
-    ggplot2,
-    patchwork,
-    rlang
-Suggests:
-    Seurat
+License: GPL-3
+Imports: ggplot2, grid, patchwork, rlang
+Suggests: Seurat, testthat (>= 3.0.0)
+Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
+NeedsCompilation: no
+Packaged: 2026-09-25 05:35:49 UTC; root
+Author: Ruiying Chen [aut, cre]
+Maintainer: Ruiying Chen <chenruiying@genomics.cn>

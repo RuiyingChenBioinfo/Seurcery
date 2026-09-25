@@ -3,17 +3,24 @@
 #' Creates a lightweight layer-like object that can be added to a ggplot object
 #' with `+`. The object is handled by the S3 method
 #' `ggplot_add.geom_vln_gradient()`, which reconstructs violin polygons from an
-#' existing violin layer and fills them with an alpha gradient along the y axis.
+#' existing violin layer and fills them with an alpha gradient along the
+#' expression axis, independently within each panel.
 #'
 #' This function supports both a single ggplot violin plot and a patchwork
 #' object returned by `Seurat::VlnPlot()` when multiple features are combined.
+#' Stacked Seurat plots retain their gene facets, manual colors, and orientation.
+#' Gradients are rendered after scales are trained, so fill scales may be added
+#' before or after this function. The quantile arguments are fractions of the
+#' panel's expression range on the plotted scale, not empirical quantiles.
+#' Both addition orders with [geom_dot_gradient()] are supported, including
+#' nested patchwork plots containing the dot guides.
 #'
-#' @param bin Number of vertical bins used to reconstruct the gradient fill.
-#'   Must be a single number greater than or equal to 2.
+#' @param bin Number of expression-axis bins used to reconstruct the gradient fill.
+#'   Must be a finite integer greater than or equal to 2.
 #' @param alpha_max Maximum alpha value.
 #' @param alpha_min Minimum alpha value.
 #' @param direction Gradient direction. Use `1` for low to high alpha from low
-#'   y to high y, and `-1` for the reverse.
+#'   expression to high expression, and `-1` for the reverse.
 #' @param layer Optional index of the violin layer in the ggplot object. If
 #'   `NULL`, the function tries to detect the first violin-like layer
 #'   automatically.
@@ -76,461 +83,113 @@ geom_vln_gradient <- function(
 #' @method ggplot_add geom_vln_gradient
 #' @export
 ggplot_add.geom_vln_gradient <- function(object, plot, object_name) {
-  `%||%` <- function(x, y) {
-    if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x
+  .seurcery_validate_alpha(object)
+  if (!.seurcery_scalar(object$bin) || object$bin < 2 ||
+      object$bin != floor(object$bin)) {
+    stop("`bin` must be a finite integer >= 2.", call. = FALSE)
   }
-
-  is_patchwork_like <- function(p) {
-    inherits(p, "patchwork") && !is.null(p$patches)
+  if (!.seurcery_scalar(object$direction) || !object$direction %in% c(-1, 1)) {
+    stop("`direction` must be 1 or -1.", call. = FALSE)
   }
-
-  apply_to_patchwork <- function(pw, add_fun) {
-    strip_patchwork <- function(x) {
-      y <- x
-      class(y) <- setdiff(class(y), "patchwork")
-      y$patches <- NULL
-      y
-    }
-
-    main_plot <- strip_patchwork(pw)
-    all_plots <- c(list(main_plot), pw$patches$plots)
-    all_plots <- lapply(all_plots, add_fun)
-
-    lay <- pw$patches$layout
-    ann <- pw$patches$annotation
-
-    out <- patchwork::wrap_plots(
-      all_plots,
-      ncol = lay$ncol %||% NULL,
-      nrow = lay$nrow %||% NULL,
-      byrow = lay$byrow %||% NULL,
-      guides = lay$guides %||% NULL
-    )
-
-    if (!is.null(lay$widths) || !is.null(lay$heights)) {
-      out <- out + patchwork::plot_layout(
-        widths = lay$widths %||% NULL,
-        heights = lay$heights %||% NULL
-      )
-    }
-
-    if (!is.null(ann)) {
-      out <- out + patchwork::plot_annotation(
-        title = ann$title %||% NULL,
-        subtitle = ann$subtitle %||% NULL,
-        caption = ann$caption %||% NULL,
-        tag_levels = ann$tag_levels %||% NULL,
-        tag_prefix = ann$tag_prefix %||% NULL,
-        tag_suffix = ann$tag_suffix %||% NULL,
-        tag_sep = ann$tag_sep %||% NULL,
-        theme = ann$theme %||% NULL
-      )
-    }
-
-    out
+  if (!.seurcery_scalar(object$min_width_frac) || object$min_width_frac < 0 ||
+      object$min_width_frac >= 1) {
+    stop("`min_width_frac` must be in [0, 1).", call. = FALSE)
   }
-
-  add_single_plot <- function(plot_single) {
-    if (!inherits(plot_single, "ggplot")) {
-      stop("`geom_vln_gradient()` must be added to a ggplot object.", call. = FALSE)
-    }
-
-    if (!is.numeric(object$bin) || length(object$bin) != 1 || object$bin < 2) {
-      stop("`bin` must be a single number >= 2.", call. = FALSE)
-    }
-
-    if (!is.numeric(object$alpha_min) ||
-        !is.numeric(object$alpha_max) ||
-        object$alpha_min < 0 ||
-        object$alpha_max > 1 ||
-        object$alpha_min > object$alpha_max) {
-      stop("Need 0 <= alpha_min <= alpha_max <= 1.", call. = FALSE)
-    }
-
-    if (!object$direction %in% c(1, -1)) {
-      stop("`direction` must be 1 or -1.", call. = FALSE)
-    }
-
-    if (!is.numeric(object$min_width_frac) ||
-        length(object$min_width_frac) != 1 ||
-        object$min_width_frac < 0 ||
-        object$min_width_frac >= 1) {
-      stop("`min_width_frac` must be in [0, 1).", call. = FALSE)
-    }
-
-    q_vals <- c(object$low_quantile, object$mid_quantile, object$high_quantile)
-    if (any(!is.numeric(q_vals)) || any(q_vals < 0) || any(q_vals > 1)) {
-      stop(
-        "`low_quantile`, `mid_quantile`, and `high_quantile` must all be in [0, 1].",
-        call. = FALSE
-      )
-    }
-
-    if (!(object$low_quantile <= object$mid_quantile &&
-          object$mid_quantile <= object$high_quantile)) {
-      stop("Need low_quantile <= mid_quantile <= high_quantile.", call. = FALSE)
-    }
-
-    find_violin_layer <- function(plot_obj, layer = NULL) {
-      if (!is.null(layer)) {
-        return(layer)
-      }
-
-      geom_names <- vapply(
-        plot_obj$layers,
-        function(z) paste(class(z$geom), collapse = "/"),
-        character(1)
-      )
-
-      hit <- grep("SplitViolin|Violin", geom_names, ignore.case = TRUE)
-      if (length(hit) == 0) {
-        stop(
-          "Cannot find a violin layer automatically. Please set `layer` manually.",
-          call. = FALSE
-        )
-      }
-
-      hit[1]
-    }
-
-    prep_curve <- function(y, x) {
-      df <- data.frame(y = y, x = x)
-      df <- df[is.finite(df$y) & is.finite(df$x), , drop = FALSE]
-      if (nrow(df) == 0) {
-        return(NULL)
-      }
-
-      df <- stats::aggregate(x ~ y, data = df, FUN = mean)
-      df <- df[order(df$y), , drop = FALSE]
-      if (nrow(df) < 2) {
-        return(NULL)
-      }
-
-      df
-    }
-
-    build_full_outline <- function(left_df, right_df, col, id) {
-      data.frame(
-        x = c(left_df$x, rev(right_df$x), left_df$x[1]),
-        y = c(left_df$y, rev(right_df$y), left_df$y[1]),
-        outline_id = id,
-        col = col,
-        stringsAsFactors = FALSE
-      )
-    }
-
-    build_split_outline <- function(side_df, x0, col, id) {
-      data.frame(
-        x = c(rep(x0, nrow(side_df)), rev(side_df$x), x0),
-        y = c(side_df$y, rev(side_df$y), side_df$y[1]),
-        outline_id = id,
-        col = col,
-        stringsAsFactors = FALSE
-      )
-    }
-
-    interp_alpha_piecewise <- function(
-      y,
-      q_low_y,
-      q_mid_y,
-      q_high_y,
-      alpha_low_end,
-      alpha_mid,
-      alpha_high_end
-    ) {
-      eps <- 1e-12
-
-      if (y <= q_low_y) {
-        return(alpha_low_end)
-      }
-      if (y >= q_high_y) {
-        return(alpha_high_end)
-      }
-      if (abs(y - q_mid_y) <= eps) {
-        return(alpha_mid)
-      }
-      if (y < q_mid_y) {
-        if ((q_mid_y - q_low_y) <= eps) {
-          return(alpha_mid)
-        }
-        return(
-          alpha_low_end +
-            (y - q_low_y) / (q_mid_y - q_low_y) * (alpha_mid - alpha_low_end)
-        )
-      }
-      if ((q_high_y - q_mid_y) <= eps) {
-        return(alpha_high_end)
-      }
-
-      alpha_mid +
-        (y - q_mid_y) / (q_high_y - q_mid_y) * (alpha_high_end - alpha_mid)
-    }
-
-    violin_layer <- find_violin_layer(plot_single, object$layer)
-    gb <- ggplot2::ggplot_build(plot_single)
-    vdat <- gb$data[[violin_layer]]
-
-    need_cols <- c("x", "y", "xmin", "xmax", "violinwidth", "group")
-    if (!all(need_cols %in% colnames(vdat))) {
-      stop(
-        "The selected layer does not contain the columns needed to reconstruct violin shapes.",
-        call. = FALSE
-      )
-    }
-
-    if (!"PANEL" %in% colnames(vdat)) {
-      vdat$PANEL <- 1
-    }
-    if (!"fill" %in% colnames(vdat)) {
-      vdat$fill <- "grey70"
-    }
-    if (!"colour" %in% colnames(vdat) && !"color" %in% colnames(vdat)) {
-      vdat$colour <- "black"
-    }
-    if (!"colour" %in% colnames(vdat) && "color" %in% colnames(vdat)) {
-      vdat$colour <- vdat$color
-    }
-
-    y_rng <- range(vdat$y, na.rm = TRUE)
-    y_den <- y_rng[2] - y_rng[1]
-    if (!is.finite(y_den) || y_den <= 0) {
-      y_den <- 1
-    }
-
-    breaks <- seq(y_rng[1], y_rng[2], length.out = object$bin + 1)
-    mids <- (breaks[-1] + breaks[-length(breaks)]) / 2
-
-    q_low_y <- y_rng[1] + object$low_quantile * y_den
-    q_mid_y <- y_rng[1] + object$mid_quantile * y_den
-    q_high_y <- y_rng[1] + object$high_quantile * y_den
-
-    if (object$direction == 1) {
-      alpha_low_end <- object$alpha_min
-      alpha_mid <- 0.5
-      alpha_high_end <- object$alpha_max
-    } else {
-      alpha_low_end <- object$alpha_max
-      alpha_mid <- 0.5
-      alpha_high_end <- object$alpha_min
-    }
-
-    alpha_vals <- vapply(
-      mids,
-      function(y) {
-        interp_alpha_piecewise(
-          y = y,
-          q_low_y = q_low_y,
-          q_mid_y = q_mid_y,
-          q_high_y = q_high_y,
-          alpha_low_end = alpha_low_end,
-          alpha_mid = alpha_mid,
-          alpha_high_end = alpha_high_end
-        )
-      },
-      numeric(1)
-    )
-    alpha_vals[alpha_vals < 0] <- 0
-    alpha_vals[alpha_vals > 1] <- 1
-
-    vdat$.xkey <- paste(vdat$PANEL, sprintf("%.10f", vdat$x), sep = "__")
-    x_group_n <- tapply(
-      vdat$group,
-      vdat$.xkey,
-      function(z) length(unique(z))
-    )
-
-    split_one <- split(vdat, interaction(vdat$PANEL, vdat$group, drop = TRUE))
-
-    poly_list <- list()
-    outline_list <- list()
-    pid <- 1
-    oid <- 1
-
-    for (gdat in split_one) {
-      gdat <- gdat[is.finite(gdat$y) & is.finite(gdat$violinwidth), , drop = FALSE]
-      if (nrow(gdat) < 2) {
-        next
-      }
-
-      gdat <- gdat[order(gdat$y), , drop = FALSE]
-
-      x0 <- unique(gdat$x)[1]
-      xkey <- unique(gdat$.xkey)[1]
-      n_same_x <- x_group_n[[xkey]]
-
-      x_left <- gdat$x - gdat$violinwidth * (gdat$x - gdat$xmin)
-      x_right <- gdat$x + gdat$violinwidth * (gdat$xmax - gdat$x)
-
-      left_df <- prep_curve(gdat$y, x_left)
-      right_df <- prep_curve(gdat$y, x_right)
-
-      if (is.null(left_df) || is.null(right_df)) {
-        next
-      }
-
-      fill_col <- unique(stats::na.omit(gdat$fill))[1] %||% "grey70"
-      line_col <- unique(stats::na.omit(gdat$colour))[1] %||% "black"
-
-      lw <- object$outline_size %||%
-        if ("linewidth" %in% colnames(gdat)) unique(gdat$linewidth)[1] else NULL %||%
-        0.3
-
-      if (n_same_x == 1) {
-        yr <- range(gdat$y, na.rm = TRUE)
-        full_width_max <- max(right_df$x - left_df$x, na.rm = TRUE)
-        width_cut <- full_width_max * object$min_width_frac
-
-        for (i in seq_len(object$bin)) {
-          y0 <- breaks[i]
-          y1 <- breaks[i + 1]
-          ys0 <- max(y0, yr[1])
-          ys1 <- min(y1, yr[2])
-
-          if (ys1 <= ys0) {
-            next
-          }
-
-          xl0 <- stats::approx(left_df$y, left_df$x, xout = ys0, rule = 2, ties = mean)$y
-          xl1 <- stats::approx(left_df$y, left_df$x, xout = ys1, rule = 2, ties = mean)$y
-          xr0 <- stats::approx(right_df$y, right_df$x, xout = ys0, rule = 2, ties = mean)$y
-          xr1 <- stats::approx(right_df$y, right_df$x, xout = ys1, rule = 2, ties = mean)$y
-
-          local_width <- max(c(xr0 - xl0, xr1 - xl1), na.rm = TRUE)
-          if (!is.finite(local_width) || local_width <= width_cut) {
-            next
-          }
-
-          poly_list[[pid]] <- data.frame(
-            x = c(xl0, xl1, xr1, xr0),
-            y = c(ys0, ys1, ys1, ys0),
-            poly_id = paste0("poly_", pid),
-            fill_col = fill_col,
-            alpha_val = alpha_vals[i],
-            stringsAsFactors = FALSE
-          )
-          pid <- pid + 1
-        }
-
-        if (isTRUE(object$outline)) {
-          outline_list[[oid]] <- build_full_outline(
-            left_df = left_df,
-            right_df = right_df,
-            col = line_col,
-            id = paste0("outline_", oid)
-          )
-          outline_list[[oid]]$lw <- lw
-          oid <- oid + 1
-        }
-      } else if (n_same_x == 2) {
-        grp_id <- unique(gdat$group)[1]
-        side_df <- if (grp_id %% 2 == 1) left_df else right_df
-
-        yr <- range(gdat$y, na.rm = TRUE)
-        half_width_max <- max(abs(side_df$x - x0), na.rm = TRUE)
-        width_cut <- half_width_max * object$min_width_frac
-
-        for (i in seq_len(object$bin)) {
-          y0 <- breaks[i]
-          y1 <- breaks[i + 1]
-          ys0 <- max(y0, yr[1])
-          ys1 <- min(y1, yr[2])
-
-          if (ys1 <= ys0) {
-            next
-          }
-
-          xs0 <- stats::approx(side_df$y, side_df$x, xout = ys0, rule = 2, ties = mean)$y
-          xs1 <- stats::approx(side_df$y, side_df$x, xout = ys1, rule = 2, ties = mean)$y
-
-          local_width <- max(c(abs(xs0 - x0), abs(xs1 - x0)), na.rm = TRUE)
-          if (!is.finite(local_width) || local_width <= width_cut) {
-            next
-          }
-
-          poly_list[[pid]] <- data.frame(
-            x = c(x0, x0, xs1, xs0),
-            y = c(ys0, ys1, ys1, ys0),
-            poly_id = paste0("poly_", pid),
-            fill_col = fill_col,
-            alpha_val = alpha_vals[i],
-            stringsAsFactors = FALSE
-          )
-          pid <- pid + 1
-        }
-
-        if (isTRUE(object$outline)) {
-          outline_list[[oid]] <- build_split_outline(
-            side_df = side_df,
-            x0 = x0,
-            col = line_col,
-            id = paste0("outline_", oid)
-          )
-          outline_list[[oid]]$lw <- lw
-          oid <- oid + 1
-        }
-      } else {
-        stop(
-          "Current version supports regular violin or two-group split violin only.",
-          call. = FALSE
-        )
-      }
-    }
-
-    if (length(poly_list) == 0) {
-      stop("Failed to reconstruct violin polygons.", call. = FALSE)
-    }
-
-    poly_df <- do.call(rbind, poly_list)
-
-    #plot_single$layers[[violin_layer]]$aes_params$fill <- NA
-    #plot_single$layers[[violin_layer]]$aes_params$colour <- NA
-    #plot_single$layers[[violin_layer]]$aes_params$color <- NA
-    plot_single$layers[[violin_layer]]$aes_params$alpha <- 0
-    plot_single$layers[[violin_layer]]$aes_params$linewidth <- 0
-    plot_single$layers[[violin_layer]]$aes_params$size <- 0
-    plot_single$layers[[violin_layer]]$aes_params$colour <- NA
-    plot_single$layers[[violin_layer]]$aes_params$color <- NA
-
-    plot_single <- plot_single +
-      ggplot2::geom_polygon(
-        data = poly_df,
-        mapping = ggplot2::aes(
-          x = x,
-          y = y,
-          group = poly_id,
-          fill = I(fill_col),
-          alpha = I(alpha_val)
-        ),
-        inherit.aes = FALSE,
-        colour = NA,
-        show.legend = FALSE
-      )
-
-    if (isTRUE(object$outline) && length(outline_list) > 0) {
-      outline_df <- do.call(rbind, outline_list)
-
-      plot_single <- plot_single +
-        ggplot2::geom_path(
-          data = outline_df,
-          mapping = ggplot2::aes(
-            x = x,
-            y = y,
-            group = outline_id,
-            colour = I(col),
-            linewidth = I(lw)
-          ),
-          inherit.aes = FALSE,
-          lineend = "round",
-          show.legend = FALSE
-        )
-    }
-
-    plot_single
+  if (!is.logical(object$outline) || length(object$outline) != 1L ||
+      is.na(object$outline)) stop("`outline` must be TRUE or FALSE.", call. = FALSE)
+  if (!is.null(object$outline_size) &&
+      (!.seurcery_scalar(object$outline_size) || object$outline_size < 0)) {
+    stop("`outline_size` must be NULL or a non-negative finite scalar.", call. = FALSE)
   }
+  .seurcery_apply_gradient(plot, object, .seurcery_add_violin)
+}
 
-  if (is_patchwork_like(plot)) {
-    return(apply_to_patchwork(plot, add_single_plot))
+.seurcery_add_violin <- function(plot, object) {
+  index <- .seurcery_find_violin_layer(plot, object$layer)
+  source_layer <- plot$layers[[index]]
+  original <- source_layer$geom$.seurcery_source_geom
+  if (is.null(original)) original <- source_layer$geom
+  split_violin <- inherits(original, "GeomSplitViolin")
+  # Derive a new layer: editing a shared ggproto would also alter the input plot.
+  layer <- ggplot2::ggproto(NULL, source_layer)
+  layer$geom <- ggplot2::ggproto(
+    "GeomSeurceryViolinGradient", original,
+    .seurcery_source_geom = original,
+    parameters = function(self, extra = FALSE) original$parameters(extra),
+    draw_panel = function(self, data, panel_params, coord, ...) {
+      slices <- .seurcery_violin_slices(data, object, split_violin)
+      fill_grob <- if (nrow(slices)) {
+        ggplot2::GeomPolygon$draw_panel(slices, panel_params, coord)
+      } else grid::nullGrob()
+      if (!object$outline || !nrow(data)) return(fill_grob)
+      data$fill <- NA
+      data$alpha <- 1
+      if (!is.null(object$outline_size)) {
+        data$linewidth <- object$outline_size
+        data$size <- object$outline_size
+      }
+      grid::grobTree(fill_grob, original$draw_panel(data, panel_params, coord, ...))
+    }
+  )
+  plot$layers[[index]] <- layer
+  plot
+}
+
+.seurcery_violin_slices <- function(data, object, split_violin = FALSE) {
+  flipped <- "flipped_aes" %in% names(data) && isTRUE(data$flipped_aes[1L])
+  data <- .seurcery_flip_data(data, flipped)
+  needed <- c("x", "y", "xmin", "xmax", "violinwidth", "group")
+  if (!all(needed %in% names(data))) {
+    if (!nrow(data)) return(data.frame())
+    stop("The violin layer lacks the density coordinates required for a gradient.", call. = FALSE)
   }
-
-  add_single_plot(plot)
+  data <- data[is.finite(data$y) & is.finite(data$x) &
+                 is.finite(data$violinwidth), , drop = FALSE]
+  if (!nrow(data)) return(data.frame())
+  # draw_panel receives one facet at a time, so each gene has its own anchors.
+  yrange <- range(data$y)
+  if (diff(yrange) <= 0) return(data.frame())
+  breaks <- seq(yrange[1L], yrange[2L], length.out = object$bin + 1L)
+  mids <- (utils::head(breaks, -1L) + utils::tail(breaks, -1L)) / 2
+  anchors <- yrange[1L] + c(object$low_quantile, object$mid_quantile,
+                           object$high_quantile) * diff(yrange)
+  ends <- c(object$alpha_min, object$alpha_max)
+  if (object$direction == -1) ends <- rev(ends)
+  alphas <- vapply(mids, .geom_dot_gradient_interp_alpha_piecewise, numeric(1),
+                   q_low_y = anchors[1L], q_mid_y = anchors[2L],
+                   q_high_y = anchors[3L], alpha_low_end = ends[1L],
+                   alpha_mid = mean(ends), alpha_high_end = ends[2L])
+  result <- list()
+  id <- 0L
+  for (g in split(data, data$group)) {
+    left <- g$x - g$violinwidth * (g$x - g$xmin)
+    right <- g$x + g$violinwidth * (g$xmax - g$x)
+    curve <- stats::aggregate(cbind(left, right), list(y = g$y), mean)
+    curve <- curve[order(curve$y), , drop = FALSE]
+    if (nrow(curve) < 2L) next
+    if (split_violin) {
+      if (g$group[1L] %% 2L == 1L) curve$right <- g$x[1L]
+      else curve$left <- g$x[1L]
+    }
+    cutoff <- max(curve$right - curve$left) * object$min_width_frac
+    # Interpolate both boundaries once per violin instead of four times per bin.
+    knots <- sort(unique(c(curve$y[1L], breaks[breaks > min(curve$y) &
+                        breaks < max(curve$y)], curve$y[nrow(curve)])))
+    xl <- stats::approx(curve$y, curve$left, knots, ties = mean)$y
+    xr <- stats::approx(curve$y, curve$right, knots, ties = mean)$y
+    for (i in seq_len(length(knots) - 1L)) {
+      if (max(xr[i] - xl[i], xr[i + 1L] - xl[i + 1L]) <= cutoff) next
+      id <- id + 1L
+      bin_id <- findInterval(mean(knots[c(i, i + 1L)]), breaks,
+                             all.inside = TRUE)
+      result[[id]] <- data.frame(
+        x = c(xl[i], xl[i + 1L], xr[i + 1L], xr[i]),
+        y = knots[c(i, i + 1L, i + 1L, i)], group = id,
+        fill = g$fill[1L], alpha = alphas[bin_id], colour = NA_character_,
+        linewidth = 0, linetype = 1
+      )
+    }
+  }
+  if (!length(result)) return(data.frame())
+  .seurcery_flip_data(do.call(rbind, result), flipped)
 }

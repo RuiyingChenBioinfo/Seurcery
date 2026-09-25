@@ -3,8 +3,9 @@
 #' Creates a lightweight layer-like object that can be added to a ggplot object
 #' with `+`. The corresponding S3 method `ggplot_add.geom_dot_gradient()`
 #' extracts plotting data from an existing violin plot, calculates expressed
-#' percentage and average expression for each x and split group, and draws
-#' summary dots below the violin panel, with optional significance labels and
+#' percentage and average expression for each identity and split group within
+#' each facet, and draws summary dots beside the low end of the expression
+#' axis, with optional significance labels and
 #' an optional side guide panel.
 #'
 #' This function supports both a single ggplot violin plot and a patchwork
@@ -15,6 +16,11 @@
 #' the same grouping variable as x. In that case, this function automatically
 #' collapses the comparison structure to one dot per x group, but the dot color
 #' still follows x groups so each identity can have a different color.
+#' Stacked Seurat plots retain feature colors and normalize average-expression
+#' alpha separately within each feature panel. Dot sizes use one common
+#' percentage scale across all panels of a faceted plot. Horizontal violins,
+#' transformed scales, and existing coordinates are preserved. The function
+#' can be combined with [geom_vln_gradient()] in either order.
 #'
 #' @param expr_cutoff Expression cutoff used to define whether a value is
 #'   expressed.
@@ -56,10 +62,14 @@
 #'   bar.
 #' @param guide_bar_low Low color for the average expression guide bar.
 #' @param guide_bar_high High color for the average expression guide bar.
-#' @param y_axis_min Lower bound for the y axis. Default is `-1`.
+#' @param y_axis_min Requested lower bound of the expression axis (including
+#'   horizontal violins). Default is `-1`. If this bound falls inside the data
+#'   range or outside the scale's domain, space for the dots is added
+#'   automatically below the displayed expression range. NULL also uses
+#'   automatic placement.
 #' @param min_avg_pct_diff Minimum absolute difference in expressed proportion
 #'   required for significance stars to be shown. Uses proportion scale in
-#'   `[0, 1]`. Default `0.1` means at least 10 percentage points.
+#'   `[0, 1]`. Default `0.2` means at least 20 percentage points.
 #'
 #' @return An object of class `"geom_dot_gradient"` that can be added to a
 #'   ggplot object.
@@ -135,131 +145,11 @@ geom_dot_gradient <- function(
 #' @method ggplot_add geom_dot_gradient
 #' @export
 ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
-  if (!inherits(plot, "ggplot") && !.geom_dot_gradient_is_patchwork_like(plot)) {
-    stop("`geom_dot_gradient()` must be added to a ggplot or patchwork object.", call. = FALSE)
-  }
-
-  if (.geom_dot_gradient_is_patchwork_like(plot)) {
-    return(.geom_dot_gradient_apply_to_patchwork(plot, object, .geom_dot_gradient_add_single_plot))
-  }
-
-  .geom_dot_gradient_add_single_plot(plot, object)
+  .geom_dot_gradient_validate_args(object)
+  .seurcery_apply_gradient(plot, object, .geom_dot_gradient_add_single_plot)
 }
 
 # internal helpers ---------------------------------------------------------
-
-`%||%` <- function(x, y) {
-  if (is.null(x) || length(x) == 0) y else x
-}
-
-.geom_dot_gradient_first_non_null <- function(...) {
-  xs <- list(...)
-  for (i in seq_along(xs)) {
-    if (!is.null(xs[[i]]) && length(xs[[i]]) > 0) {
-      return(xs[[i]])
-    }
-  }
-  NULL
-}
-
-.geom_dot_gradient_aes_name <- function(aes_obj) {
-  if (is.null(aes_obj) || length(aes_obj) == 0) {
-    return(NULL)
-  }
-
-  expr <- tryCatch(
-    {
-      if (inherits(aes_obj, "quosure")) {
-        rlang::get_expr(aes_obj)
-      } else {
-        aes_obj
-      }
-    },
-    error = function(e) aes_obj
-  )
-
-  if (is.symbol(expr) || is.name(expr)) {
-    return(as.character(expr))
-  }
-
-  if (is.character(expr) && length(expr) == 1) {
-    return(expr)
-  }
-
-  NULL
-}
-
-.geom_dot_gradient_is_patchwork_like <- function(p) {
-  inherits(p, "patchwork") && !is.null(p$patches)
-}
-
-.geom_dot_gradient_apply_to_patchwork <- function(pw, object, add_fun) {
-  strip_patchwork <- function(x) {
-    y <- x
-    class(y) <- setdiff(class(y), "patchwork")
-    y$patches <- NULL
-    y
-  }
-
-  main_plot <- strip_patchwork(pw)
-  all_plots <- c(list(main_plot), pw$patches$plots)
-  all_plots <- lapply(all_plots, add_fun, object = object)
-
-  lay <- pw$patches$layout
-  ann <- pw$patches$annotation
-
-  out <- patchwork::wrap_plots(
-    all_plots,
-    ncol = lay$ncol %||% NULL,
-    nrow = lay$nrow %||% NULL,
-    byrow = lay$byrow %||% NULL,
-    guides = lay$guides %||% NULL
-  )
-
-  if (!is.null(lay$widths) || !is.null(lay$heights)) {
-    out <- out + patchwork::plot_layout(
-      widths = lay$widths %||% NULL,
-      heights = lay$heights %||% NULL
-    )
-  }
-
-  if (!is.null(ann)) {
-    out <- out + patchwork::plot_annotation(
-      title = ann$title %||% NULL,
-      subtitle = ann$subtitle %||% NULL,
-      caption = ann$caption %||% NULL,
-      tag_levels = ann$tag_levels %||% NULL,
-      tag_prefix = ann$tag_prefix %||% NULL,
-      tag_suffix = ann$tag_suffix %||% NULL,
-      tag_sep = ann$tag_sep %||% NULL,
-      theme = ann$theme %||% NULL
-    )
-  }
-
-  out
-}
-
-.geom_dot_gradient_find_violin_layer <- function(plot_obj, layer = NULL) {
-  if (!is.null(layer)) {
-    return(layer)
-  }
-
-  geom_names <- vapply(
-    plot_obj$layers,
-    function(z) paste(class(z$geom), collapse = "/"),
-    character(1)
-  )
-
-  hit <- grep("SplitViolin|Violin", geom_names, ignore.case = TRUE)
-  if (length(hit) == 0) {
-    stop(
-      "Cannot find a violin layer automatically. Please set `layer` manually.",
-      call. = FALSE
-    )
-  }
-
-  hit[1]
-}
 
 .geom_dot_gradient_interp_alpha_piecewise <- function(
   y,
@@ -317,136 +207,6 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   labs[min(hit)]
 }
 
-.geom_dot_gradient_default_seurat_cols <- function(n) {
-  if (n <= 0) {
-    return(character(0))
-  }
-
-  if (requireNamespace("Seurat", quietly = TRUE) &&
-      "DiscretePalette" %in% getNamespaceExports("Seurat")) {
-    cols <- tryCatch(
-      Seurat::DiscretePalette(n = n),
-      error = function(e) NULL
-    )
-    if (!is.null(cols) && length(cols) >= n) {
-      return(unname(cols[seq_len(n)]))
-    }
-  }
-
-  grDevices::hcl.colors(n = n, palette = "Dark 3")
-}
-
-#' @keywords internal
-#' @noRd
-.geom_dot_gradient_resolve_fill_cols <- function(
-  group_cols,
-  levels_to_color,
-  gb = NULL,
-  vdat = NULL,
-  collapsed_fill = FALSE,
-  x_levels = NULL
-) {
-  n_col <- length(levels_to_color)
-
-  if (!is.null(group_cols)) {
-    gc <- group_cols
-
-    if (is.null(names(gc))) {
-      if (length(gc) != n_col) {
-        stop(
-          "`group_cols` length must equal the number of displayed groups.",
-          call. = FALSE
-        )
-      }
-      names(gc) <- levels_to_color
-    } else {
-      if (!all(levels_to_color %in% names(gc))) {
-        stop(
-          "Named `group_cols` must contain all displayed group names.",
-          call. = FALSE
-        )
-      }
-      gc <- gc[levels_to_color]
-      if (length(gc) != n_col) {
-        stop(
-          "`group_cols` length must equal the number of displayed groups.",
-          call. = FALSE
-        )
-      }
-    }
-
-    gc <- unname(gc)
-    names(gc) <- levels_to_color
-    return(gc)
-  }
-
-  if (isTRUE(collapsed_fill) && !is.null(vdat) && !is.null(x_levels)) {
-    if ("group" %in% colnames(vdat) && "fill" %in% colnames(vdat) && "x" %in% colnames(vdat)) {
-      vg <- split(vdat, vdat$group)
-
-      centers <- vapply(
-        vg,
-        function(df) stats::median(df$x, na.rm = TRUE),
-        numeric(1)
-      )
-      fills <- vapply(
-        vg,
-        function(df) {
-          vals <- unique(as.character(df$fill))
-          vals <- vals[!is.na(vals) & nzchar(vals)]
-          if (length(vals) == 0) NA_character_ else vals[1]
-        },
-        character(1)
-      )
-
-      ord <- order(centers)
-      fills <- fills[ord]
-      fills <- fills[seq_len(min(length(fills), length(x_levels)))]
-
-      if (length(fills) == length(x_levels) && !any(is.na(fills))) {
-        fills <- unname(fills)
-        names(fills) <- x_levels
-        return(fills)
-      }
-    }
-  }
-
-  if (!is.null(gb)) {
-    fill_scale <- gb$plot$scales$get_scales("fill")
-    if (!is.null(fill_scale)) {
-      fill_cols <- tryCatch(
-        fill_scale$map(levels_to_color),
-        error = function(e) NULL
-      )
-
-      if (!is.null(fill_cols) &&
-          length(fill_cols) == n_col &&
-          !any(is.na(fill_cols))) {
-        fill_cols <- unname(fill_cols)
-        names(fill_cols) <- levels_to_color
-        return(fill_cols)
-      }
-
-      fill_cols <- tryCatch(
-        fill_scale$palette(n_col),
-        error = function(e) NULL
-      )
-
-      if (!is.null(fill_cols) &&
-          length(fill_cols) >= n_col &&
-          !any(is.na(fill_cols[seq_len(n_col)]))) {
-        fill_cols <- unname(fill_cols[seq_len(n_col)])
-        names(fill_cols) <- levels_to_color
-        return(fill_cols)
-      }
-    }
-  }
-
-  cols <- .geom_dot_gradient_default_seurat_cols(n_col)
-  names(cols) <- levels_to_color
-  cols
-}
-
 .geom_dot_gradient_choose_display_max_break <- function(obs_max_pct, breaks_pct) {
   breaks_pct <- sort(unique(as.numeric(breaks_pct)))
   pos_breaks <- breaks_pct[breaks_pct > 0]
@@ -455,12 +215,11 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
     return(100)
   }
 
-  reached <- pos_breaks[pos_breaks <= obs_max_pct + 1e-12]
+  reached <- pos_breaks[pos_breaks >= obs_max_pct - 1e-12]
   if (length(reached) == 0) {
-    return(min(pos_breaks))
+    return(max(100, obs_max_pct))
   }
-
-  max(reached)
+  min(reached)
 }
 
 .geom_dot_gradient_size_from_pct <- function(
@@ -485,170 +244,199 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
 }
 
 .geom_dot_gradient_validate_args <- function(object) {
-  q_vals <- c(object$low_quantile, object$mid_quantile, object$high_quantile)
-  if (any(q_vals < 0) || any(q_vals > 1)) {
-    stop(
-      "`low_quantile`, `mid_quantile`, and `high_quantile` must be in [0, 1].",
-      call. = FALSE
-    )
-  }
-
-  if (!(object$low_quantile <= object$mid_quantile &&
-        object$mid_quantile <= object$high_quantile)) {
-    stop("Need low_quantile <= mid_quantile <= high_quantile.", call. = FALSE)
-  }
-
-  if (!is.numeric(object$size_range) ||
-      length(object$size_range) != 2 ||
-      object$size_range[1] < 0 ||
-      object$size_range[2] <= object$size_range[1]) {
-    stop(
-      "`size_range` must be a numeric vector of length 2 with increasing values.",
-      call. = FALSE
-    )
-  }
-
-  if (!is.numeric(object$size_zero) ||
-      length(object$size_zero) != 1 ||
-      object$size_zero < 0) {
-    stop("`size_zero` must be a non negative number.", call. = FALSE)
-  }
-
-  if (!is.numeric(object$size_power) ||
-      length(object$size_power) != 1 ||
-      object$size_power <= 0) {
-    stop("`size_power` must be a positive number.", call. = FALSE)
-  }
-
-  if (!is.null(object$sig_test_all) &&
-      !object$sig_test_all %in% c("wilcox", "ttest")) {
-    stop(
-      "`sig_test_all` must be NULL, \"wilcox\", or \"ttest\".",
-      call. = FALSE
-    )
-  }
-
-  if (!is.null(object$y_axis_min)) {
-    if (!is.numeric(object$y_axis_min) ||
-        length(object$y_axis_min) != 1 ||
-        is.na(object$y_axis_min)) {
-      stop("`y_axis_min` must be NULL or a single numeric value.", call. = FALSE)
+  .seurcery_validate_alpha(object)
+  scalar <- function(x) is.numeric(x) && length(x) == 1L && is.finite(x)
+  nonnegative <- c("size_zero", "dot_stroke", "dodge_width", "star_size",
+                   "guide_title_size", "guide_label_size", "min_avg_pct_diff")
+  for (nm in nonnegative) {
+    if (!scalar(object[[nm]]) || object[[nm]] < 0) {
+      stop("`", nm, "` must be a finite nonnegative number.", call. = FALSE)
     }
   }
-
-  if (!is.numeric(object$min_avg_pct_diff) ||
-      length(object$min_avg_pct_diff) != 1 ||
-      is.na(object$min_avg_pct_diff) ||
-      object$min_avg_pct_diff < 0) {
-    stop("`min_avg_pct_diff` must be a single non negative numeric value.", call. = FALSE)
+  if (object$min_avg_pct_diff > 1) {
+    stop("`min_avg_pct_diff` must be in [0, 1].", call. = FALSE)
   }
-
+  for (nm in c("size_power", "guide_width")) {
+    if (!scalar(object[[nm]]) || object[[nm]] <= 0) {
+      stop("`", nm, "` must be a finite positive number.", call. = FALSE)
+    }
+  }
+  if (!scalar(object$expr_cutoff)) {
+    stop("`expr_cutoff` must be a finite number.", call. = FALSE)
+  }
+  if (!is.numeric(object$size_range) || length(object$size_range) != 2L ||
+      any(!is.finite(object$size_range)) || object$size_range[1] < 0 ||
+      object$size_range[2] <= object$size_range[1]) {
+    stop("`size_range` must contain two finite increasing nonnegative numbers.", call. = FALSE)
+  }
+  if (!is.null(object$y_axis_min) && !scalar(object$y_axis_min)) {
+    stop("`y_axis_min` must be NULL or a finite number.", call. = FALSE)
+  }
+  if (!is.logical(object$guide) || length(object$guide) != 1L || is.na(object$guide)) {
+    stop("`guide` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (!scalar(object$guide_bar_n) || object$guide_bar_n < 2 ||
+      object$guide_bar_n != floor(object$guide_bar_n)) {
+    stop("`guide_bar_n` must be an integer >= 2.", call. = FALSE)
+  }
+  if (!is.numeric(object$guide_size_breaks) || !length(object$guide_size_breaks) ||
+      any(!is.finite(object$guide_size_breaks)) ||
+      any(object$guide_size_breaks < 0 | object$guide_size_breaks > 100)) {
+    stop("`guide_size_breaks` must contain finite percentages in [0, 100].", call. = FALSE)
+  }
+  if (!is.null(object$sig_test_all) &&
+      (length(object$sig_test_all) != 1L ||
+       !object$sig_test_all %in% c("wilcox", "ttest"))) {
+    stop('`sig_test_all` must be NULL, "wilcox", or "ttest".', call. = FALSE)
+  }
+  if (length(object$sig_adjust) != 1L ||
+      !object$sig_adjust %in% stats::p.adjust.methods) {
+    stop("`sig_adjust` must be a method supported by p.adjust().", call. = FALSE)
+  }
+  if (!is.numeric(object$sig_cutoffs) || !length(object$sig_cutoffs) ||
+      any(!is.finite(object$sig_cutoffs)) ||
+      any(object$sig_cutoffs < 0 | object$sig_cutoffs > 1) ||
+      is.null(names(object$sig_cutoffs)) || any(!nzchar(names(object$sig_cutoffs)))) {
+    stop("`sig_cutoffs` must be a named numeric vector of cutoffs in [0, 1].", call. = FALSE)
+  }
   invisible(TRUE)
 }
 
-.geom_dot_gradient_extract_plot_data <- function(plot_single, violin_layer) {
-  raw_df <- plot_single$data
+# Evaluate the effective layer mappings, including .data[[...]], expressions,
+# and layer-specific data. PANEL assignment comes from the trained facet.
+.geom_dot_gradient_extract_plot_data <- function(plot_single, violin_layer, gb) {
+  source <- plot_single$layers[[violin_layer]]
+  raw_df <- source$data
+  if (is.null(raw_df) || inherits(raw_df, "waiver")) raw_df <- plot_single$data
+  if (is.function(raw_df)) raw_df <- raw_df(plot_single$data)
   if (!is.data.frame(raw_df)) {
-    stop(
-      "Cannot extract plotting data from the current plot object.",
-      call. = FALSE
-    )
+    stop("The violin layer must use data-frame data.", call. = FALSE)
   }
-
-  x_var <- .geom_dot_gradient_aes_name(.geom_dot_gradient_first_non_null(
-    plot_single$mapping$x,
-    plot_single$layers[[violin_layer]]$mapping$x
-  ))
-  y_var <- .geom_dot_gradient_aes_name(.geom_dot_gradient_first_non_null(
-    plot_single$mapping$y,
-    plot_single$layers[[violin_layer]]$mapping$y
-  ))
-  fill_var <- .geom_dot_gradient_aes_name(.geom_dot_gradient_first_non_null(
-    plot_single$mapping$fill,
-    plot_single$layers[[violin_layer]]$mapping$fill
-  ))
-
-  if (is.null(x_var) || is.null(y_var)) {
-    stop("Cannot determine x and y variables from the current plot.", call. = FALSE)
+  mapping <- if (isTRUE(source$inherit.aes)) plot_single$mapping else ggplot2::aes()
+  mapping[names(source$mapping)] <- source$mapping
+  evaluate <- function(nm, default = NULL) {
+    if (is.null(mapping[[nm]])) return(default)
+    value <- rlang::eval_tidy(mapping[[nm]], data = raw_df)
+    if (length(value) == 1L) value <- rep(value, nrow(raw_df))
+    if (length(value) != nrow(raw_df)) {
+      stop("The `", nm, "` mapping does not match the violin data.", call. = FALSE)
+    }
+    value
   }
-
-  if (!x_var %in% colnames(raw_df) || !y_var %in% colnames(raw_df)) {
-    stop(
-      "The x or y variables inferred from the plot are not found in plot$data.",
-      call. = FALSE
-    )
+  xx <- evaluate("x")
+  yy <- evaluate("y")
+  if (is.null(xx) || is.null(yy)) {
+    stop("Cannot evaluate the violin's x and y mappings.", call. = FALSE)
   }
-
-  if (is.null(fill_var) || !fill_var %in% colnames(raw_df)) {
-    fill_var <- NULL
-  }
-
-  keep_cols <- unique(c(x_var, y_var, fill_var))
-  dat <- raw_df[, keep_cols, drop = FALSE]
-
-  colnames(dat)[colnames(dat) == x_var] <- ".x"
-  colnames(dat)[colnames(dat) == y_var] <- ".y"
-
-  if (!is.null(fill_var) && fill_var %in% colnames(dat)) {
-    colnames(dat)[colnames(dat) == fill_var] <- ".fill"
-  }
-
-  dat$.x <- as.character(dat$.x)
-  collapsed_fill <- FALSE
-
-  if (!(".fill" %in% colnames(dat))) {
-    dat$.fill <- "All"
-    fill_levels <- "All"
-    collapsed_fill <- TRUE
+  vdat <- gb$data[[violin_layer]]
+  horizontal <- if ("flipped_aes" %in% names(vdat) && nrow(vdat)) {
+    isTRUE(vdat$flipped_aes[1])
   } else {
-    dat$.fill <- as.character(dat$.fill)
-
-    if (is.factor(raw_df[[fill_var]])) {
-      fill_levels <- levels(raw_df[[fill_var]])
-    } else {
-      fill_levels <- unique(as.character(dat$.fill))
-    }
-
-    fill_levels <- fill_levels[fill_levels %in% unique(dat$.fill)]
-    fill_levels <- fill_levels[!is.na(fill_levels) & nzchar(fill_levels)]
-
-    if (length(fill_levels) == 0) {
-      dat$.fill <- "All"
-      fill_levels <- "All"
-      collapsed_fill <- TRUE
-    }
+    is.numeric(xx) && !is.numeric(yy)
   }
-
-  x_levels <- if (is.factor(raw_df[[x_var]])) {
-    levels(raw_df[[x_var]])
-  } else {
-    unique(as.character(raw_df[[x_var]]))
+  group <- if (horizontal) yy else xx
+  expr <- if (horizontal) xx else yy
+  if (!is.numeric(expr)) {
+    stop("The expression mapping must evaluate to numeric values.", call. = FALSE)
   }
-  x_levels <- x_levels[x_levels %in% unique(dat$.x)]
-
-  dat <- dat[is.finite(dat$.y) & !is.na(dat$.x) & !is.na(dat$.fill), , drop = FALSE]
-  if (nrow(dat) == 0) {
-    stop("No valid data found for dot summary.", call. = FALSE)
-  }
-
-  if (!collapsed_fill) {
-    same_as_x <- length(dat$.fill) == length(dat$.x) &&
-      all(as.character(dat$.fill) == as.character(dat$.x))
-
-    if (isTRUE(same_as_x)) {
-      dat$.fill <- "All"
-      fill_levels <- "All"
-      collapsed_fill <- TRUE
-    }
-  }
-
-  list(
-    dat = dat,
-    raw_df = raw_df,
-    x_levels = x_levels,
-    fill_levels = fill_levels,
-    collapsed_fill = collapsed_fill
+  fill <- evaluate("fill", rep("All", nrow(raw_df)))
+  raw_df$.x <- group
+  raw_df$.y <- expr
+  raw_df$.fill <- fill
+  raw_df$.source_fill <- fill
+  raw_df <- gb$layout$facet$map_data(
+    raw_df, gb$layout$layout, gb$layout$facet_params
   )
+  raw_df <- raw_df[is.finite(raw_df$.y) & !is.na(raw_df$.x) &
+                     !is.na(raw_df$.fill), , drop = FALSE]
+  if (!nrow(raw_df)) stop("No finite observations found for dot summaries.", call. = FALSE)
+  facet_vars <- setdiff(names(gb$layout$layout),
+                       c("PANEL", "ROW", "COL", "SCALE_X", "SCALE_Y", "COORD"))
+  facet_specs <- c(plot_single$facet$params$rows, plot_single$facet$params$cols,
+                   plot_single$facet$params$facets)
+  input_vars <- unique(unlist(lapply(facet_specs, function(q) {
+    all.vars(rlang::get_expr(q))
+  })))
+  list(dat = raw_df, expression_axis = if (horizontal) "x" else "y",
+       facet_vars = unique(c(facet_vars, intersect(input_vars, names(raw_df)))),
+       has_fill_mapping = !is.null(mapping$fill),
+       fixed_fill = source$aes_params$fill, fill_identity = inherits(fill, "AsIs"),
+       fill_levels = if (is.factor(fill)) levels(fill) else unique(fill))
+}
+
+.geom_dot_gradient_levels <- function(x) {
+  values <- if (is.factor(x)) levels(x) else unique(as.character(x))
+  values[values %in% as.character(x)]
+}
+
+.geom_dot_gradient_add_facets <- function(data, panel, panel_data, extracted, gb) {
+  if (is.null(data) || !nrow(data)) return(data)
+  layout_row <- gb$layout$layout[as.character(gb$layout$layout$PANEL) == panel, , drop = FALSE]
+  for (nm in extracted$facet_vars) {
+    value <- if (nm %in% names(layout_row)) layout_row[[nm]][1] else panel_data[[nm]][1]
+    data[[nm]] <- rep(value, nrow(data))
+  }
+  data
+}
+
+# Positions are computed in the trained expression scale then returned to data
+# space. This avoids resetting log/reverse scales or coord_flip().
+.geom_dot_gradient_positions <- function(panel_data, scale, object) {
+  trans <- if (is.function(scale$get_transformation)) scale$get_transformation() else scale$trans
+  values <- suppressWarnings(trans$transform(panel_data$.y))
+  values <- values[is.finite(values)]
+  if (!length(values)) stop("No observations lie in the expression scale's domain.", call. = FALSE)
+  rng <- range(values)
+  identity <- identical(trans$name, "identity")
+  baseline <- if (identity) min(0, rng[1]) else rng[1]
+  requested <- if (is.null(object$y_axis_min)) NA_real_ else
+    suppressWarnings(trans$transform(object$y_axis_min))
+  padding <- if (identity) max(1, diff(rng) * 0.1) else max(0.1, diff(rng) * 0.15)
+  lower <- if (length(requested) == 1L && is.finite(requested) && requested < baseline) {
+    requested
+  } else {
+    baseline - padding
+  }
+  list(dot = trans$inverse((baseline + lower) / 2),
+       anchor = trans$inverse(lower), lower_transformed = lower)
+}
+
+# Preserve an explicitly limited expression scale while making room for dots.
+# ggplot2 stores numeric continuous limits in transformed coordinates.
+.geom_dot_gradient_extend_limits <- function(plot, axis, lower) {
+  scale <- plot$scales$get_scales(axis)
+  if (is.null(scale) || is.null(scale$limits)) return(plot)
+  scale <- scale$clone()
+  if (is.numeric(scale$limits)) {
+    scale$limits[1] <- min(c(scale$limits[1], lower), na.rm = TRUE)
+  } else if (is.function(scale$limits)) {
+    old_limits <- scale$limits
+    trans <- if (is.function(scale$get_transformation)) scale$get_transformation() else scale$trans
+    scale$limits <- local({
+      previous <- old_limits
+      transform <- trans
+      bound <- lower
+      function(x) {
+        lim <- transform$transform(previous(x))
+        lim[1] <- min(c(lim[1], bound), na.rm = TRUE)
+        transform$inverse(lim)
+      }
+    })
+  }
+  suppressMessages(plot + scale)
+}
+
+.geom_dot_gradient_extend_coord <- function(plot, axis, anchors) {
+  limits <- plot$coordinates$limits
+  bound <- limits[[axis]]
+  if (is.numeric(bound) && length(bound) == 2L) {
+    if (is.finite(bound[1])) bound[1] <- min(c(bound[1], anchors), na.rm = TRUE)
+    if (is.finite(bound[2])) bound[2] <- max(c(bound[2], anchors), na.rm = TRUE)
+    limits[[axis]] <- bound
+    original_coord <- plot$coordinates
+    plot$coordinates <- ggplot2::ggproto(NULL, original_coord, limits = limits)
+  }
+  plot
 }
 
 .geom_dot_gradient_build_summary_df <- function(dat, x_levels, fill_levels, object, collapsed_fill) {
@@ -734,155 +522,6 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   )
 }
 
-if (FALSE) {
-.geom_dot_gradient_build_star_df <- function(
-    dat,
-    x_levels,
-    fill_levels,
-    collapsed_fill,
-    star_base_y,
-    object
-) {
-  if (is.null(object$sig_test_all)) {
-    return(NULL)
-  }
-  
-  if (isTRUE(collapsed_fill) || length(fill_levels) <= 1) {
-    p_tab <- list()
-    
-    for (xx in x_levels) {
-      g1 <- dat$.y[dat$.x == xx]
-      g2 <- dat$.y[dat$.x != xx]
-      
-      if (length(g1) == 0 || length(g2) == 0) {
-        next
-      }
-      
-      pct1 <- mean(g1 > object$expr_cutoff, na.rm = TRUE)
-      pct2 <- mean(g2 > object$expr_cutoff, na.rm = TRUE)
-      pct_diff <- abs(pct1 - pct2)
-      
-      p_val <- tryCatch(
-        {
-          if (object$sig_test_all == "wilcox") {
-            stats::wilcox.test(g1, g2, alternative = "greater")$p.value
-          } else {
-            stats::t.test(g1, g2)$p.value
-          }
-        },
-        error = function(e) NA_real_
-      )
-      
-      p_tab[[length(p_tab) + 1]] <- data.frame(
-        .x = xx,
-        .fill = "All",
-        p = p_val,
-        pct_diff = pct_diff,
-        stringsAsFactors = FALSE
-      )
-    }
-    
-    if (length(p_tab) == 0) {
-      return(NULL)
-    }
-    
-    p_df <- do.call(rbind, p_tab)
-    p_df$p_adj <- stats::p.adjust(p_df$p, method = object$sig_adjust)
-    p_df$label <- vapply(
-      p_df$p_adj,
-      .geom_dot_gradient_p_to_star,
-      character(1),
-      cutoffs = object$sig_cutoffs
-    )
-    p_df <- p_df[
-      nzchar(p_df$label) &
-        is.finite(p_df$pct_diff) &
-        !is.na(p_df$pct_diff) &
-        p_df$pct_diff >= object$min_avg_pct_diff,
-      ,
-      drop = FALSE
-    ]
-    
-    if (nrow(p_df) == 0) {
-      return(NULL)
-    }
-    
-    p_df$.x <- factor(p_df$.x, levels = x_levels)
-    p_df$.fill <- factor(p_df$.fill, levels = fill_levels)
-    p_df$y_plot <- star_base_y
-    return(p_df)
-  }
-  
-  p_tab <- list()
-  
-  for (xx in x_levels) {
-    for (ff in fill_levels) {
-      idx1 <- dat$.x == xx & dat$.fill == ff
-      idx2 <- !idx1
-      
-      g1 <- dat$.y[idx1]
-      g2 <- dat$.y[idx2]
-      
-      if (length(g1) == 0 || length(g2) == 0) {
-        next
-      }
-      
-      pct1 <- mean(g1 > object$expr_cutoff, na.rm = TRUE)
-      pct2 <- mean(g2 > object$expr_cutoff, na.rm = TRUE)
-      pct_diff <- abs(pct1 - pct2)
-      
-      p_val <- tryCatch(
-        {
-          if (object$sig_test_all == "wilcox") {
-            stats::wilcox.test(g1, g2, alternative = "greater")$p.value
-          } else {
-            stats::t.test(g1, g2, alternative = "greater")$p.value
-          }
-        },
-        error = function(e) NA_real_
-      )
-      
-      p_tab[[length(p_tab) + 1]] <- data.frame(
-        .x = xx,
-        .fill = ff,
-        p = p_val,
-        pct_diff = pct_diff,
-        stringsAsFactors = FALSE
-      )
-    }
-  }
-  
-  if (length(p_tab) == 0) {
-    return(NULL)
-  }
-  
-  p_df <- do.call(rbind, p_tab)
-  p_df$p_adj <- stats::p.adjust(p_df$p, method = object$sig_adjust)
-  p_df$label <- vapply(
-    p_df$p_adj,
-    .geom_dot_gradient_p_to_star,
-    character(1),
-    cutoffs = object$sig_cutoffs
-  )
-  p_df <- p_df[
-    nzchar(p_df$label) &
-      is.finite(p_df$pct_diff) &
-      !is.na(p_df$pct_diff) &
-      p_df$pct_diff >= object$min_avg_pct_diff,
-    ,
-    drop = FALSE
-  ]
-  
-  if (nrow(p_df) == 0) {
-    return(NULL)
-  }
-  
-  p_df$.x <- factor(p_df$.x, levels = x_levels)
-  p_df$.fill <- factor(p_df$.fill, levels = fill_levels)
-  p_df$y_plot <- star_base_y
-  p_df
-}
-}
 
 .geom_dot_gradient_build_star_df <- function(
     dat,
@@ -1060,182 +699,129 @@ if (FALSE) {
 #' @keywords internal
 #' @noRd
 .geom_dot_gradient_add_single_plot <- function(plot_single, object) {
-  if (!inherits(plot_single, "ggplot")) {
-    stop("`geom_dot_gradient()` must be added to a ggplot object.", call. = FALSE)
-  }
-
-  .geom_dot_gradient_validate_args(object)
-
-  violin_layer <- .geom_dot_gradient_find_violin_layer(plot_single, object$layer)
+  violin_layer <- .seurcery_find_violin_layer(plot_single, object$layer)
   gb <- ggplot2::ggplot_build(plot_single)
-  vdat <- gb$data[[violin_layer]]
+  extracted <- .geom_dot_gradient_extract_plot_data(plot_single, violin_layer, gb)
+  axis <- extracted$expression_axis
+  group_axis <- if (axis == "y") "x" else "y"
+  panel_ids <- unique(as.character(extracted$dat$PANEL))
+  summaries <- stars <- anchors <- vector("list", length(panel_ids))
+  lower_bounds <- numeric(length(panel_ids))
+  global_groups <- .geom_dot_gradient_levels(extracted$dat$.x)
+  global_fills <- .geom_dot_gradient_levels(extracted$dat$.fill)
 
-  extracted <- .geom_dot_gradient_extract_plot_data(plot_single, violin_layer)
-  dat <- extracted$dat
-  x_levels <- extracted$x_levels
-  fill_levels <- extracted$fill_levels
-  collapsed_fill <- extracted$collapsed_fill
-
-  summary_res <- .geom_dot_gradient_build_summary_df(
-    dat = dat,
-    x_levels = x_levels,
-    fill_levels = fill_levels,
-    object = object,
-    collapsed_fill = collapsed_fill
-  )
-  sum_df <- summary_res$sum_df
-  display_max_pct <- summary_res$display_max_pct
-  display_max_prop <- summary_res$display_max_prop
-
-  levels_to_color <- if (isTRUE(collapsed_fill)) x_levels else fill_levels
-  fill_cols <- .geom_dot_gradient_resolve_fill_cols(
-    group_cols = object$group_cols,
-    levels_to_color = levels_to_color,
-    gb = gb,
-    vdat = vdat,
-    collapsed_fill = collapsed_fill,
-    x_levels = x_levels
-  )
-
-  sum_df$fill_col <- unname(fill_cols[sum_df$.disp_group])
-  sum_df$fill_col_asis <- I(sum_df$fill_col)
-
-  bottom_limit <- if (is.null(object$y_axis_min)) {
-    -1
-  } else {
-    object$y_axis_min
-  }
-
-  if (bottom_limit <= -0.5) {
-    dot_y <- -0.5
-  } else {
-    dot_y <- bottom_limit + 0.5 * (0 - bottom_limit)
-  }
-
-  star_base_y <- dot_y # + 0.06
-  sum_df$y_plot <- dot_y
-
-  star_df <- .geom_dot_gradient_build_star_df(
-    dat = dat,
-    x_levels = x_levels,
-    fill_levels = fill_levels,
-    collapsed_fill = collapsed_fill,
-    star_base_y = star_base_y,
-    object = object
-  )
-
-  anchor_df <- data.frame(
-    .x = factor(x_levels, levels = x_levels),
-    .y = rep(bottom_limit, length(x_levels))
-  )
-
-  if (isTRUE(collapsed_fill) || length(fill_levels) <= 1) {
-    main_plot <- plot_single +
-      ggplot2::geom_blank(
-        data = anchor_df,
-        mapping = ggplot2::aes(x = .data$.x, y = .data$.y),
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_point(
-        data = sum_df,
-        mapping = ggplot2::aes(
-          x = .data$.x,
-          y = .data$y_plot,
-          size = .data$size_val,
-          alpha = .data$alpha_val,
-          fill = .data$fill_col_asis
-        ),
-        inherit.aes = FALSE,
-        shape = object$dot_shape,
-        stroke = object$dot_stroke,
-        colour = "black",
-        show.legend = FALSE
-      ) +
-      ggplot2::scale_size_identity() +
-      ggplot2::scale_alpha_identity() +
-      ggplot2::scale_y_continuous(limits = c(bottom_limit, NA)) +
-      ggplot2::coord_cartesian(clip = "off") +
-      ggplot2::guides(fill = "none", size = "none", alpha = "none") +
-      ggplot2::theme(
-        plot.margin = ggplot2::margin(5.5, 10, 20, 5.5)
-      )
-
-    if (!is.null(star_df) && nrow(star_df) > 0) {
-      main_plot <- main_plot +
-        ggplot2::geom_text(
-          data = star_df,
-          mapping = ggplot2::aes(
-            x = .data$.x,
-            y = .data$y_plot,
-            label = .data$label
-          ),
-          inherit.aes = FALSE,
-          colour = "black",
-          size = object$star_size,
-          vjust = 0.5,
-          fontface = "plain",
-          show.legend = FALSE
-        )
+  for (i in seq_along(panel_ids)) {
+    panel <- panel_ids[i]
+    dat <- extracted$dat[as.character(extracted$dat$PANEL) == panel, , drop = FALSE]
+    scales <- gb$layout$get_scales(as.integer(panel))
+    group_scale <- scales[[group_axis]]
+    x_levels <- as.character(group_scale$get_limits())
+    x_levels <- x_levels[x_levels %in% as.character(dat$.x)]
+    if (!length(x_levels)) x_levels <- .geom_dot_gradient_levels(dat$.x)
+    fill_levels <- .geom_dot_gradient_levels(dat$.fill)
+    # A feature-colored stacked facet has one color per identity, but it is
+    # not a split comparison. Keep its original fill for plotting below.
+    collapsed <- all(vapply(split(as.character(dat$.fill), dat$.x, drop = TRUE),
+                            function(z) length(unique(z)) <= 1L, logical(1)))
+    dat$.x <- factor(dat$.x, levels = x_levels)
+    dat$.fill <- factor(dat$.fill, levels = fill_levels)
+    if (collapsed) {
+      dat$.fill <- factor(rep("All", nrow(dat)), levels = "All")
+      fill_levels <- "All"
     }
-  } else {
-    dodge_pos <- ggplot2::position_dodge(width = object$dodge_width)
-
-    main_plot <- plot_single +
-      ggplot2::geom_blank(
-        data = anchor_df,
-        mapping = ggplot2::aes(x = .data$.x, y = .data$.y),
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_point(
-        data = sum_df,
-        mapping = ggplot2::aes(
-          x = .data$.x,
-          y = .data$y_plot,
-          group = .data$.fill,
-          size = .data$size_val,
-          alpha = .data$alpha_val,
-          fill = .data$fill_col_asis
-        ),
-        position = dodge_pos,
-        inherit.aes = FALSE,
-        shape = object$dot_shape,
-        stroke = object$dot_stroke,
-        colour = "black",
-        show.legend = FALSE
-      ) +
-      ggplot2::scale_size_identity() +
-      ggplot2::scale_alpha_identity() +
-      ggplot2::scale_y_continuous(limits = c(bottom_limit, NA)) +
-      ggplot2::coord_cartesian(clip = "off") +
-      ggplot2::guides(fill = "none", size = "none", alpha = "none") +
-      ggplot2::theme(
-        plot.margin = ggplot2::margin(5.5, 10, 20, 5.5)
-      )
-
-    if (!is.null(star_df) && nrow(star_df) > 0) {
-      main_plot <- main_plot +
-        ggplot2::geom_text(
-          data = star_df,
-          mapping = ggplot2::aes(
-            x = .data$.x,
-            y = .data$y_plot,
-            label = .data$label,
-            group = .data$.fill
-          ),
-          position = dodge_pos,
-          inherit.aes = FALSE,
-          colour = "black",
-          size = object$star_size,
-          vjust = 0.5,
-          fontface = "plain",
-          show.legend = FALSE
-        )
+    result <- .geom_dot_gradient_build_summary_df(dat, x_levels, fill_levels,
+                                                 object, collapsed)
+    summary <- result$sum_df
+    positions <- .geom_dot_gradient_positions(dat, scales[[axis]], object)
+    lower_bounds[i] <- positions$lower_transformed
+    summary$y_plot <- positions$dot
+    summary$.source_fill <- if (collapsed) {
+      as.character(dat$.source_fill[match(as.character(summary$.x), as.character(dat$.x))])
+    } else {
+      as.character(summary$.fill)
     }
-  }
+    star <- .geom_dot_gradient_build_star_df(dat, x_levels, fill_levels,
+                                            collapsed, positions$dot, object)
+    center <- function(df) {
+      value <- as.numeric(group_scale$map(as.character(df$.x)))
+      if (!collapsed && length(fill_levels) > 1L) {
+        value <- value + object$dodge_width *
+          ((match(as.character(df$.fill), fill_levels) - 0.5) / length(fill_levels) - 0.5)
+      }
+      value
+    }
+    summary$.group_position <- center(summary)
+    if (!is.null(star)) star$.group_position <- center(star)
+    anchor <- data.frame(.group_position = as.numeric(group_scale$map(x_levels)),
+                         y_plot = positions$anchor)
 
-  if (!isTRUE(object$guide)) {
-    return(main_plot)
+    if (!is.null(object$group_cols)) {
+      keys <- if (collapsed) global_groups else global_fills
+      cols <- object$group_cols
+      if (is.null(names(cols))) {
+        if (length(cols) != length(keys)) {
+          stop("`group_cols` length must equal the number of displayed groups.", call. = FALSE)
+        }
+        names(cols) <- keys
+      }
+      if (!all(as.character(summary$.disp_group) %in% names(cols))) {
+        stop("Named `group_cols` must contain all displayed group names.", call. = FALSE)
+      }
+      summary$.fixed_fill <- unname(cols[as.character(summary$.disp_group)])
+    } else if (extracted$fill_identity) {
+      summary$.fixed_fill <- summary$.source_fill
+    } else if (!extracted$has_fill_mapping) {
+      fill <- extracted$fixed_fill
+      if (is.null(fill)) fill <- gb$data[[violin_layer]]$fill[1]
+      if (!length(fill)) fill <- "grey70"
+      summary$.fixed_fill <- rep(fill, nrow(summary))
+    }
+    summaries[[i]] <- .geom_dot_gradient_add_facets(summary, panel, dat, extracted, gb)
+    stars[[i]] <- .geom_dot_gradient_add_facets(star, panel, dat, extracted, gb)
+    anchors[[i]] <- .geom_dot_gradient_add_facets(anchor, panel, dat, extracted, gb)
   }
+  sum_df <- do.call(rbind, summaries)
+  star_df <- do.call(rbind, stars)
+  anchor_df <- do.call(rbind, anchors)
+  display_max_pct <- .geom_dot_gradient_choose_display_max_break(
+    max(sum_df$pct_expr), object$guide_size_breaks
+  )
+  display_max_prop <- display_max_pct / 100
+  sum_df$size_val <- vapply(sum_df$pct_expr / 100, .geom_dot_gradient_size_from_pct,
+                          numeric(1), obs_max_prop = display_max_prop,
+                          size_range = object$size_range, size_zero = object$size_zero,
+                          size_power = object$size_power)
+  if (extracted$has_fill_mapping && is.null(object$group_cols)) {
+    sum_df$.source_fill <- factor(sum_df$.source_fill, levels = extracted$fill_levels)
+  }
+  position_mapping <- if (axis == "y") {
+    ggplot2::aes(x = .data$.group_position, y = .data$y_plot)
+  } else {
+    ggplot2::aes(x = .data$y_plot, y = .data$.group_position)
+  }
+  dot_mapping <- position_mapping
+  fixed_fill <- ".fixed_fill" %in% names(sum_df)
+  if (!fixed_fill) dot_mapping$fill <- ggplot2::aes(fill = .data$.source_fill)$fill
+  point_args <- list(data = sum_df, mapping = dot_mapping, inherit.aes = FALSE,
+                     size = sum_df$size_val, alpha = sum_df$alpha_val,
+                     shape = object$dot_shape, stroke = object$dot_stroke,
+                     colour = "black", show.legend = FALSE)
+  if (fixed_fill) point_args$fill <- sum_df$.fixed_fill
+  main_plot <- plot_single +
+    ggplot2::geom_blank(data = anchor_df, mapping = position_mapping, inherit.aes = FALSE) +
+    do.call(ggplot2::geom_point, point_args)
+  main_plot <- .geom_dot_gradient_extend_limits(main_plot, axis, min(lower_bounds))
+  main_plot <- .geom_dot_gradient_extend_coord(main_plot, axis, anchor_df$y_plot)
+  if (!is.null(star_df) && nrow(star_df)) {
+    star_mapping <- position_mapping
+    star_mapping$label <- ggplot2::aes(label = .data$label)$label
+    main_plot <- main_plot + ggplot2::geom_text(
+      data = star_df, mapping = star_mapping, inherit.aes = FALSE,
+      colour = "black", size = object$star_size, vjust = 0.5,
+      fontface = "plain", show.legend = FALSE
+    )
+  }
+  if (!isTRUE(object$guide)) return(main_plot)
 
   size_breaks_pct <- sort(unique(as.numeric(object$guide_size_breaks)))
   size_breaks_pct <- size_breaks_pct[size_breaks_pct >= 0]
