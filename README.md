@@ -21,7 +21,7 @@ included with R):
 
 ```r
 install.packages(c("ggplot2", "patchwork", "rlang"))
-install.packages("Seurcery_0.8.7.tar.gz", repos = NULL, type = "source")
+install.packages("Seurcery-Seurcery_v0.8.7.tar.gz", repos = NULL, type = "source")
 ```
 
 ## Stacked violin gradients
