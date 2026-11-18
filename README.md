@@ -2,13 +2,13 @@
 
 <img src="Public/Logo-Seurcery.png" align="right" width="115" height="135">
 
-An R package for extending Seurat visualizations. Version 0.90 adds
+An R package for extending Seurat visualizations. Version 0.9.0 adds
 `FeatureLayerPlot()` for displaying multiple genes on aligned thin panels,
 alongside the existing violin and dot gradients.
 
-See the [v0.90 tutorial](Public/Seurcery_v0.90_tutorial.html), the examples below,
-and [NEWS.md](NEWS.md). The [v0.8.6 tutorial](Public/Seurcery_v0.8.6_tutorial.html)
-is retained as an archive. Its processed input, `PBMC3k_Test.rds`, is not bundled.
+See the [illustrated v0.9.0 tutorial](Public/Seurcery_v0.9.0_tutorial.md)
+and [NEWS.md](NEWS.md). To view the tutorial offline, open
+`Public/Seurcery_v0.9.0_tutorial.html` from the downloaded repository.
 
 <details> <summary> Note about package development </summary>
 
@@ -25,13 +25,13 @@ install.packages("remotes")
 remotes::install_github("RuiyingChenBioinfo/Seurcery")
 ```
 
-Alternatively, if you downloaded `Seurcery_0.90.tar.gz`, run the following
+Alternatively, if you downloaded `Seurcery_0.9.0.tar.gz`, run the following
 from the directory containing the archive. `FeatureLayerPlot()` requires
 SeuratObject >= 5.0.0 and ggplot2 >= 3.5.0:
 
 ```r
 install.packages(c("ggplot2", "SeuratObject", "patchwork", "rlang"))
-install.packages("Seurcery_0.90.tar.gz", repos = NULL, type = "source")
+install.packages("Seurcery_0.9.0.tar.gz", repos = NULL, type = "source")
 ```
 
 Install Seurat to run the examples below: `install.packages("Seurat")`.
@@ -106,7 +106,7 @@ p + geom_dot_gradient(guide = FALSE, y_axis_min = -2)
 
 ![PBMC3K stacked violins with cluster dot summaries](Public/geom_dot_gradient_PBMC3K.png)
 
-The [v0.90 tutorial](Public/Seurcery_v0.90_tutorial.html) covers PCA,
+The [v0.9.0 tutorial](Public/Seurcery_v0.9.0_tutorial.md) covers PCA,
 manual colors, panel spacing, and combining the two gradients.
 
 ## Citation

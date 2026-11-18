@@ -1,4 +1,4 @@
-# Seurcery 0.90
+# Seurcery 0.9.0
 
 * Add `FeatureLayerPlot()` for normalized gene expression on aligned thin
   panels, with a categorical or numeric metadata reference map.
