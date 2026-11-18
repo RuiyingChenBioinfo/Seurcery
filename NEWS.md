@@ -1,3 +1,20 @@
+# Seurcery 0.90
+
+* Add `FeatureLayerPlot()` for normalized gene expression on aligned thin
+  panels, with a categorical or numeric metadata reference map.
+* Support Seurat discrete colors, manual color or fill scales, an embedded
+  Reds palette for numeric metadata, and a shared expression colorbar.
+* Select existing embeddings with `reduction` and label them beside equal,
+  perpendicular black coordinate markers.
+* Add expression ordering, horizontal and vertical panel gaps, and gene-title
+  spacing while retaining the established default layout.
+* Warn about partial missing expression or metadata values without replacing
+  them with zero; report unusable data and invalid spacing with explicit errors.
+* Warn with a count when `geom_dot_gradient()` omits observations with
+  non-finite expression or missing group or fill values from dot summaries.
+* Add function documentation, a v0.90 tutorial, a reproducible `pbmc_small`
+  example, and regression coverage.
+
 # Seurcery 0.8.7
 
 * Add per-panel violin opacity gradients for stacked Seurat plots, including

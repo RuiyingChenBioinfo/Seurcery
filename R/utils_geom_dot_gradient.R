@@ -347,8 +347,12 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   raw_df <- gb$layout$facet$map_data(
     raw_df, gb$layout$layout, gb$layout$facet_params
   )
-  raw_df <- raw_df[is.finite(raw_df$.y) & !is.na(raw_df$.x) &
-                     !is.na(raw_df$.fill), , drop = FALSE]
+  keep <- is.finite(raw_df$.y) & !is.na(raw_df$.x) & !is.na(raw_df$.fill)
+  if (any(!keep)) {
+    warning("Omitting ", sum(!keep), " observations with missing or non-finite ",
+            "expression, group or fill values from dot summaries.", call. = FALSE)
+  }
+  raw_df <- raw_df[keep, , drop = FALSE]
   if (!nrow(raw_df)) stop("No finite observations found for dot summaries.", call. = FALSE)
   facet_vars <- setdiff(names(gb$layout$layout),
                        c("PANEL", "ROW", "COL", "SCALE_X", "SCALE_Y", "COORD"))
