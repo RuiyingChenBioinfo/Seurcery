@@ -4,6 +4,8 @@
   panels, with a categorical or numeric metadata reference map.
 * Support Seurat discrete colors, manual color or fill scales, an embedded
   Reds palette for numeric metadata, and a shared expression colorbar.
+* Mark each labeled break on the expression and continuous metadata colorbars
+  in `FeatureLayerPlot()`.
 * Select existing embeddings with `reduction` and label them beside equal,
   perpendicular black coordinate markers.
 * Add expression ordering, horizontal and vertical panel gaps, and gene-title

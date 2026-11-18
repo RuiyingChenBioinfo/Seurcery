@@ -291,7 +291,6 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
     theme = ggplot2::theme(legend.title.position = "top",
                            legend.key.width = grid::unit(38, "mm"),
                            legend.key.height = grid::unit(1.8, "mm"),
-                           legend.ticks = ggplot2::element_blank(),
                            legend.frame = ggplot2::element_blank())
   ) else ggplot2::guide_legend(
     ncol = min(4L, length(keys)), direction = "horizontal",
@@ -304,7 +303,6 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
     theme = ggplot2::theme(legend.title.position = "top",
                            legend.key.width = grid::unit(83, "mm"),
                            legend.key.height = grid::unit(1.8, "mm"),
-                           legend.ticks = ggplot2::element_blank(),
                            legend.frame = ggplot2::element_blank())
   )
   if (group.aes == "colour") {
@@ -359,6 +357,9 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
       legend.justification.inside = c(0.5, 0),
       legend.text = ggplot2::element_text(size = 7.8, colour = text.color),
       legend.title = ggplot2::element_text(size = 8.3, colour = text.color),
+      legend.ticks = ggplot2::element_line(colour = text.color, linewidth = 0.3,
+                                           lineend = "butt"),
+      legend.ticks.length = grid::unit(c(-0.8, 0), "mm"),
       legend.key.width = grid::unit(3.3, "mm"),
       legend.key.height = grid::unit(3.8, "mm"),
       legend.spacing.x = grid::unit(if (continuous) 34 else 1.6, "mm"),

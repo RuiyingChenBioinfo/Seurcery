@@ -12,7 +12,7 @@ data("pbmc3k.final", package = "pbmc3k.SeuratData")
 rds <- SeuratObject::UpdateSeuratObject(pbmc3k.final)
 gl <- c("CD3D", "NKG7", "MS4A1", "LYZ")
 clusters <- levels(rds$seurat_clusters)
-pal <- setNames(grDevices::hcl.colors(length(clusters), "Dark 3"), clusters)
+pal <- setNames(grDevices::palette.colors(length(clusters), "Okabe-Ito"), clusters)
 
 plots <- list(
   umap = FeatureLayerPlot(
@@ -28,6 +28,13 @@ plots <- list(
   manual_fill = FeatureLayerPlot(
     rds, gl, group.by = "seurat_clusters", reduction = "pca",
     group.scale = scale_fill_manual(values = pal)
+  ),
+  counts = FeatureLayerPlot(
+    rds, gl, group.by = "nCount_RNA", reduction = "pca", assay = "RNA"
+  ),
+  counts_viridis = FeatureLayerPlot(
+    rds, gl, group.by = "nCount_RNA", reduction = "pca", assay = "RNA",
+    group.scale = scale_color_viridis_c()
   ),
   compact = FeatureLayerPlot(
     rds, gl, group.by = "seurat_clusters", reduction = "pca",

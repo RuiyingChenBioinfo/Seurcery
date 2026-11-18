@@ -75,6 +75,12 @@ test_that("metadata scales retain Seurat colours and separate expression guides"
   grobs <- walk_grobs(render_gradient_plot(numeric))
   bars <- Filter(function(g) inherits(g, "gtable") && "bar" %in% g$layout$name, grobs)
   expect_length(bars, 2)
+  for (bar in bars) {
+    ticks <- bar$grobs[[match("ticks", bar$layout$name)]]$children[[1L]]
+    labels <- bar$grobs[[grep("^label", bar$layout$name)]]$children[[1L]]
+    expect_equal(as.numeric(ticks$x), rep(as.numeric(labels$x), each = 2L))
+    expect_lt(grid::convertHeight(ticks$y[1L] - ticks$y[2L], "mm", valueOnly = TRUE), 0)
+  }
   labels <- unlist(lapply(Filter(function(g) inherits(g, "text"), grobs), `[[`, "label"))
   expect_true(all(c("nCount_RNA", "Expression level", "PCA") %in% labels))
 })
