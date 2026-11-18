@@ -36,183 +36,78 @@ install.packages("Seurcery_0.90.tar.gz", repos = NULL, type = "source")
 
 Install Seurat to run the examples below: `install.packages("Seurat")`.
 
-## Feature layers
+## PBMC3K example
 
-`FeatureLayerPlot()` shows a metadata reference map on the left and gene
-expression on aligned thin panels on the right. Expression is read directly
-from the selected assay's normalized `data` layer. All gene panels share one
-color scale labeled **Expression level**.
+Install the PBMC3K dataset once using the code below. The processed `pbmc3k.final`
+object contains 2,638 cells with nine cluster IDs (0–8) in `seurat_clusters`.
+All three plots use these IDs and the same four genes. Data from Satija Lab,
+[pbmc3k.SeuratData 3.1.4](https://seurat.nygenome.org/src/contrib/pbmc3k.SeuratData_3.1.4.tar.gz),
+licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-The following example uses the bundled `pbmc_small` data and its stored PCA
-coordinates, so no data download or new embedding is needed:
+```r
+install.packages(
+  "https://seurat.nygenome.org/src/contrib/pbmc3k.SeuratData_3.1.4.tar.gz",
+  repos = NULL, type = "source"
+)
+```
 
 ```r
 library(Seurat)
 library(ggplot2)
 library(Seurcery)
 
-data("pbmc_small", package = "SeuratObject")
-rds <- pbmc_small
-rds$seurat_clusters <- Idents(rds)
-gl <- c("LYZ", "MS4A1", "CD3E", "NKG7")
-
-FeatureLayerPlot(
-  rds,
-  features = gl,
-  group.by = "seurat_clusters",
-  reduction = "pca",
-  assay = "RNA"
-)
+data("pbmc3k.final", package = "pbmc3k.SeuratData")
+rds <- SeuratObject::UpdateSeuratObject(pbmc3k.final)
+gl <- c("CD3D", "NKG7", "MS4A1", "LYZ")
 ```
 
-For an object with UMAP coordinates, use `reduction = "umap"` (the default).
-The selected reduction must already exist in the object; its first two
-dimensions are used. The lower-left marker has two equal, perpendicular black
-lines and is labeled automatically, for example **UMAP** or **PCA**.
+### FeatureLayerPlot()
 
-The preview uses annotated PBMC3K cells and UMAP. The runnable example above
-uses the smaller `pbmc_small` object and its cluster identities.
-
-![FeatureLayerPlot on PBMC3K UMAP coordinates](Public/FeatureLayerPlot_UMAP.png)
-
-Categorical metadata uses Seurat's default discrete colors. Pass a named manual
-scale to `group.scale` to update both the reference points and their legend:
-
-```r
-pal <- setNames(c("#3FA55E", "#50B5D8", "#EA8350"), levels(rds$seurat_clusters))
-
-FeatureLayerPlot(
-  rds, gl, group.by = "seurat_clusters", reduction = "pca",
-  group.scale = scale_color_manual(values = pal)
-)
-
-# scale_fill_manual(values = pal) is also supported.
-FeatureLayerPlot(
-  rds, gl, group.by = "nCount_RNA", reduction = "pca"
-)
-```
-
-Numeric metadata uses an embedded Reds palette and a separate continuous
-colorbar. Convert numeric category codes to a factor when they should be
-treated as categories. The left title preserves the metadata column name.
-`feature.cols` controls the gene gradient, and `text.color` controls text
-colors (default `"black"`).
-
-| Argument | Default | Usage |
-| --- | --- | --- |
-| `order` | `TRUE` | Draw higher values last; `FALSE` keeps the original cell order. Applies to genes and numeric metadata. |
-| `ncol` | `2` | Number of gene-panel columns. |
-| `gap.x` | `0.18` | Horizontal gap; must be greater than zero. |
-| `gap.y` | `0.16` | Vertical gap; must be at least `max(0.10, title.gap + 0.037)`. |
-| `title.gap` | `0.04` | Gene-title offset above each panel; must be at least `0.037`. |
-
-Gaps use normalized plot coordinates. Smaller values make the layout more
-compact; invalid gaps produce an error before plotting. For example:
+The left panel shows the clusters on the stored UMAP. The four gene panels use a
+shared color scale for normalized RNA expression.
 
 ```r
 FeatureLayerPlot(
-  rds, gl, group.by = "seurat_clusters", reduction = "pca",
-  order = TRUE, gap.x = 0.06, gap.y = 0.11, title.gap = 0.04
+  rds, features = gl, group.by = "seurat_clusters",
+  reduction = "umap", assay = "RNA"
 )
 ```
 
-Missing assay, reduction, normalized data, or requested features produce an
-error. Non-finite embedding coordinates also produce an error. Partial missing
-or non-finite expression and metadata values generate counted warnings and
-remain missing-colored points (grey by default); they are never replaced with
-zero. An entirely missing metadata column or requested gene produces an error.
-Zero expression is valid. Embedding cells absent from the selected assay are
-omitted from all panels with a warning; no shared cells produces an error.
+![PBMC3K gene expression on UMAP, grouped by Seurat cluster](Public/FeatureLayerPlot_UMAP.png)
 
-For a reproducible PDF containing categorical, continuous, manual-color, and
-compact examples, run from the repository root after installing Seurat:
+### geom_vln_gradient()
 
-```sh
-Rscript examples/feature-layers.R feature-layers.pdf
-```
-
-## Stacked violin gradients
-
-The following uses 15 genes from `pbmc_small`. Name the palette with `gl`
-so that each color remains associated with its gene if the plotting order changes.
+Start with a stacked Seurat violin plot. Within each gene panel, higher
+expression has greater opacity.
 
 ```r
-library(ggplot2)
-library(Seurcery)
+gene_cols <- c(CD3D = "#3FA55E", NKG7 = "#50B5D8",
+               MS4A1 = "#EA8350", LYZ = "#8B72BE")
+p <- VlnPlot(
+  rds, features = gl, group.by = "seurat_clusters", pt.size = 0,
+  stack = TRUE, flip = TRUE, add.noise = FALSE
+) + scale_fill_manual(values = gene_cols)
 
-data("pbmc_small", package = "SeuratObject")
-rds <- pbmc_small
-rds$seurat_clusters <- SeuratObject::Idents(rds)
-gl <- head(rownames(rds), 15)
-gene_cols <- setNames(
-  c(rep("#3FA55E", 2), rep("#50B5D8", 5), rep("#EA8350", 8)),
-  gl
-)
-
-p <- Seurat::VlnPlot(
-  rds,
-  features = gl,
-  group.by = "seurat_clusters",
-  pt.size = 0,
-  stack = TRUE,
-  flip = TRUE,
-  add.noise = FALSE
-) +
-  scale_fill_manual(values = gene_cols)
-
-p + geom_vln_gradient(alpha_min = 0.05, alpha_max = 1)
+p + geom_vln_gradient()
 ```
 
-Each gene panel has its own expression range for the opacity gradient. Low
-expression is lighter and high expression is darker, while the fill color comes
-from the original plot's scale. Use `direction = -1` to reverse the gradient.
-Both `flip = TRUE` and `flip = FALSE` are supported, as are horizontal ggplot
-violins and `coord_flip()`.
+![PBMC3K stacked violins with an expression gradient](Public/geom_vln_gradient_PBMC3K.png)
 
-Violin gradients are drawn after scale training, so `scale_fill_manual()` may
-also be added after `geom_vln_gradient()`. For a patchwork of separate feature
-plots, use patchwork's `&` operator to apply a fill scale to every child plot.
-Existing patchwork layouts, annotations, spacers, and non-violin panels are kept.
+### geom_dot_gradient()
 
-## Combining violin and dot gradients
-
-Add optional dots showing the expressed percentage (size) and relative average
-expression (opacity) for each group. Summaries and opacity ranges are calculated
-separately for each gene panel. For exact expressed percentages at
-`expr_cutoff = 0`, set `add.noise = FALSE` in `Seurat::VlnPlot()` when creating
-`p`; Seurat's default plotting noise can make zero values slightly positive.
+Using the same violin plot, add a dot for each cluster. Dot size shows the
+percentage of cells expressing the gene. Opacity shows the cluster's average
+expression relative to the other clusters in that gene panel.
+`add.noise = FALSE` in the violin call above keeps zeros at zero.
 
 ```r
-p +
-  geom_vln_gradient(alpha_min = 0.05, alpha_max = 1) +
-  geom_dot_gradient(guide = FALSE)
-
-# The reverse order is also supported.
-p +
-  geom_dot_gradient(guide = FALSE) +
-  geom_vln_gradient(alpha_min = 0.05, alpha_max = 1)
+p + geom_dot_gradient(guide = FALSE, y_axis_min = -2)
 ```
 
-Set `guide = TRUE` (the default) to include the dot guide. Both addition orders
-also work with this guide: adding a violin gradient visits the violin panels
-and leaves guide-only panels intact. Dots follow the source fill scale unless
-`group_cols` is supplied. For horizontal violins, dot summaries are placed to
-the left of the expression range.
+![PBMC3K stacked violins with cluster dot summaries](Public/geom_dot_gradient_PBMC3K.png)
 
-The existing argument names `low_quantile`, `mid_quantile`, and `high_quantile`
-denote fractions of the expression range, not empirical quantiles. Violin
-anchors use the panel's plotted density range; dot anchors use the range of
-group average expression within that panel. For example, `mid_quantile = 0.5`
-means the midpoint of the relevant range.
-
-For a reproducible example using `pbmc_small`, run from the repository root:
-
-```sh
-Rscript examples/stacked-gradients.R stacked-gradients.pdf
-```
-
-The script plots 15 genes with both flip settings and both gradient orders,
-with and without dot guides.
+The [v0.90 tutorial](Public/Seurcery_v0.90_tutorial.html) covers PCA,
+manual colors, panel spacing, and combining the two gradients.
 
 ## Citation
 Chen, R. (2026). Seurcery: An R package designed for further analysis and visualization based on utilities of R package Seurat [Computer software]. Zenodo (all versions). https://doi.org/10.5281/zenodo.18962435

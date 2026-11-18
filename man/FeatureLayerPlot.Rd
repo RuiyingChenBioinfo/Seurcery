@@ -26,8 +26,10 @@ FeatureLayerPlot(
 
 \item{features}{Character vector of feature names in the normalized data.}
 
-\item{group.by}{Name of a metadata column for the reference map. Numeric
-columns are continuous; use a factor for numeric category codes.}
+\item{group.by}{Name of a metadata column for the reference map. The
+\code{seurat_clusters} column is categorical even when stored as numbers.
+Its original IDs appear on the map and in the legend. Other numeric
+columns are continuous; factor levels that are integer IDs keep their labels.}
 
 \item{reduction}{Name of the stored reduction, such as \code{"umap"} or \code{"pca"}.
 Default is \code{"umap"}.}
@@ -41,14 +43,14 @@ active assay.}
 
 \item{group.scale}{Optional ggplot2 colour or fill scale for the reference map.
 For categories, use \code{scale_color_manual()} or \code{scale_fill_manual()} with
-values named by metadata level. Numeric metadata requires a continuous scale.}
+values named by metadata level. Continuous metadata requires a continuous scale.}
 
 \item{feature.cols}{Colours defining the shared expression gradient.}
 
 \item{text.color}{Colour of titles, labels, and legend text. Default is black.}
 
 \item{order}{Logical. Draw larger expression values last. Also applies to
-numeric metadata. Default \code{TRUE} preserves visible high-expression points;
+continuous metadata. Default \code{TRUE} preserves visible high-expression points;
 \code{FALSE} keeps the embedding's cell order.}
 
 \item{gap.x}{Horizontal gap between gene panels in normalized plot coordinates.
@@ -68,7 +70,7 @@ A ggplot object.
 Places a metadata reference map beside projected gene panels using the same
 cells and embedding. Expression comes from the selected assay's normalized
 \code{data} layer and uses one shared colour scale labelled "Expression level".
-Numeric metadata uses an embedded Reds palette; categorical metadata uses
+Continuous metadata uses an embedded Reds palette; categorical metadata uses
 ggplot2's discrete colours, as in Seurat's default \code{DimPlot()}.
 }
 \details{
@@ -84,9 +86,13 @@ the same requested gene and cell, the function reports the ambiguity.
 When all observed expression is zero, points use the first expression colour.
 }
 \examples{
-data("pbmc_small", package = "SeuratObject")
+\dontrun{
+# Install the pbmc3k dataset as shown in the tutorial.
+data("pbmc3k.final", package = "pbmc3k.SeuratData")
+rds <- SeuratObject::UpdateSeuratObject(pbmc3k.final)
 FeatureLayerPlot(
-  pbmc_small, c("LYZ", "MS4A1", "CD3E"),
-  group.by = "groups", reduction = "pca"
+  rds, c("CD3D", "NKG7", "MS4A1", "LYZ"),
+  group.by = "seurat_clusters", reduction = "umap"
 )
+}
 }

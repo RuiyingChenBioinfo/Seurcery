@@ -1,4 +1,4 @@
-# Run after installing Seurcery 0.90 and Seurat:
+# Run after installing Seurcery, Seurat and the PBMC3K data package (see README).
 # Rscript examples/stacked-gradients.R stacked-gradients.pdf
 # By default, the PDF is saved in the current directory.
 
@@ -8,48 +8,25 @@ suppressPackageStartupMessages({
   library(Seurcery)
 })
 
-set.seed(42)
-data("pbmc_small", package = "SeuratObject")
-rds <- pbmc_small
-rds$seurat_clusters <- Idents(rds)
-gl <- rownames(rds)[seq_len(15L)]
-stopifnot(length(gl) == 15L, !anyDuplicated(gl))
-gene_cols <- setNames(
-  c(rep("#3FA55E", 2), rep("#50B5D8", 5), rep("#EA8350", 8)),
-  gl
+data("pbmc3k.final", package = "pbmc3k.SeuratData")
+rds <- SeuratObject::UpdateSeuratObject(pbmc3k.final)
+gl <- c("CD3D", "NKG7", "MS4A1", "LYZ")
+gene_cols <- c(CD3D = "#3FA55E", NKG7 = "#50B5D8", MS4A1 = "#EA8350", LYZ = "#8B72BE")
+
+p <- Seurat::VlnPlot(
+  rds, features = gl, group.by = "seurat_clusters", pt.size = 0,
+  stack = TRUE, flip = TRUE, add.noise = FALSE
+) + scale_fill_manual(values = gene_cols)
+
+plots <- list(
+  violin = p + geom_vln_gradient(),
+  dots = p + geom_dot_gradient(guide = FALSE, y_axis_min = -2),
+  combined = p + geom_vln_gradient() + geom_dot_gradient(guide = TRUE, y_axis_min = -2)
 )
-
-plots <- list()
-for (flip in c(TRUE, FALSE)) {
-  p <- Seurat::VlnPlot(
-    rds,
-    features = gl,
-    group.by = "seurat_clusters",
-    pt.size = 0,
-    stack = TRUE,
-    flip = flip,
-    add.noise = FALSE
-  ) + scale_fill_manual(values = gene_cols)
-
-  prefix <- paste0("flip=", flip)
-  plots[[paste(prefix, "violin")]] <-
-    p + geom_vln_gradient(alpha_min = 0.05, alpha_max = 1)
-
-  for (guide in c(FALSE, TRUE)) {
-    plots[[paste(prefix, "violin then dots; guide=", guide)]] <-
-      p +
-      geom_vln_gradient(alpha_min = 0.05, alpha_max = 1) +
-      geom_dot_gradient(guide = guide)
-    plots[[paste(prefix, "dots then violin; guide=", guide)]] <-
-      p +
-      geom_dot_gradient(guide = guide) +
-      geom_vln_gradient(alpha_min = 0.05, alpha_max = 1)
-  }
-}
 
 args <- commandArgs(trailingOnly = TRUE)
 output <- if (length(args)) args[[1L]] else "stacked-gradients.pdf"
-grDevices::pdf(output, width = 12, height = 11, onefile = TRUE)
+grDevices::pdf(output, width = 8, height = 5.5, onefile = TRUE)
 tryCatch({
   for (name in names(plots)) {
     message("Rendering: ", name)

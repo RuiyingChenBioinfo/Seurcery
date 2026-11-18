@@ -3,7 +3,7 @@
 #' Places a metadata reference map beside projected gene panels using the same
 #' cells and embedding. Expression comes from the selected assay's normalized
 #' `data` layer and uses one shared colour scale labelled "Expression level".
-#' Numeric metadata uses an embedded Reds palette; categorical metadata uses
+#' Continuous metadata uses an embedded Reds palette; categorical metadata uses
 #' ggplot2's discrete colours, as in Seurat's default `DimPlot()`.
 #'
 #' The selected reduction must already exist in the object. Its first two
@@ -19,8 +19,10 @@
 #'
 #' @param object A Seurat object with normalized expression and a stored reduction.
 #' @param features Character vector of feature names in the normalized data.
-#' @param group.by Name of a metadata column for the reference map. Numeric
-#'   columns are continuous; use a factor for numeric category codes.
+#' @param group.by Name of a metadata column for the reference map. The
+#'   `seurat_clusters` column is categorical even when stored as numbers.
+#'   Its original IDs appear on the map and in the legend. Other numeric
+#'   columns are continuous; factor levels that are integer IDs keep their labels.
 #' @param reduction Name of the stored reduction, such as `"umap"` or `"pca"`.
 #'   Default is `"umap"`.
 #' @param assay Assay containing normalized expression. Defaults to the object's
@@ -29,11 +31,11 @@
 #' @param pt.size Point size passed to `ggplot2::geom_point()`.
 #' @param group.scale Optional ggplot2 colour or fill scale for the reference map.
 #'   For categories, use `scale_color_manual()` or `scale_fill_manual()` with
-#'   values named by metadata level. Numeric metadata requires a continuous scale.
+#'   values named by metadata level. Continuous metadata requires a continuous scale.
 #' @param feature.cols Colours defining the shared expression gradient.
 #' @param text.color Colour of titles, labels, and legend text. Default is black.
 #' @param order Logical. Draw larger expression values last. Also applies to
-#'   numeric metadata. Default `TRUE` preserves visible high-expression points;
+#'   continuous metadata. Default `TRUE` preserves visible high-expression points;
 #'   `FALSE` keeps the embedding's cell order.
 #' @param gap.x Horizontal gap between gene panels in normalized plot coordinates.
 #'   Must be greater than zero. Default is `0.18`.
@@ -46,11 +48,15 @@
 #' @return A ggplot object.
 #'
 #' @examples
-#' data("pbmc_small", package = "SeuratObject")
+#' \dontrun{
+#' # Install the pbmc3k dataset as shown in the tutorial.
+#' data("pbmc3k.final", package = "pbmc3k.SeuratData")
+#' rds <- SeuratObject::UpdateSeuratObject(pbmc3k.final)
 #' FeatureLayerPlot(
-#'   pbmc_small, c("LYZ", "MS4A1", "CD3E"),
-#'   group.by = "groups", reduction = "pca"
+#'   rds, c("CD3D", "NKG7", "MS4A1", "LYZ"),
+#'   group.by = "seurat_clusters", reduction = "umap"
 #' )
+#' }
 #' @importFrom rlang .data
 #' @export
 FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
@@ -175,8 +181,9 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
   }
   if (all(expr == 0, na.rm = TRUE)) feature.cols <- rep(feature.cols[1L], 2L)
   groups <- meta[cells, group.by]
-  continuous <- is.numeric(groups)
-  bad.group <- if (continuous) !is.finite(groups) else is.na(groups)
+  is.cluster <- group.by == "seurat_clusters"
+  continuous <- is.numeric(groups) && !is.cluster
+  bad.group <- if (is.numeric(groups)) !is.finite(groups) else is.na(groups)
   if (all(bad.group)) {
     stop("All values are missing or non-finite in metadata '", group.by, "'.",
          call. = FALSE)
@@ -188,6 +195,7 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
   }
   if (!continuous) groups <- droplevels(as.factor(groups))
   keys <- levels(groups)
+  original.ids <- !continuous && (is.cluster || all(grepl("^-?[0-9]+$", keys)))
 
   # Keep the original aspect ratio in the reference map.
   xy <- sweep(xy, 2, apply(xy, 2, function(v) mean(range(v)))) /
@@ -196,7 +204,7 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
   centres <- data.frame(x = numeric(), y = numeric(), id = integer())
   if (!continuous) {
     centres <- stats::aggregate(cbind(x, y) ~ group, ref, stats::median)
-    centres$id <- match(centres$group, keys)
+    centres$id <- if (original.ids) as.character(centres$group) else match(centres$group, keys)
     # Put the number beside clusters narrower than the label.
     cluster.width <- tapply(ref$x, ref$group, stats::IQR)
     narrow <- cluster.width[as.character(centres$group)] < 0.025
@@ -270,7 +278,7 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
     stop("Use a ", if (continuous) "continuous" else "discrete",
          " colour or fill scale for group.scale.", call. = FALSE)
   }
-  if (!continuous && inherits(group.scale$labels, "waiver")) {
+  if (!continuous && !original.ids && inherits(group.scale$labels, "waiver")) {
     group.scale$labels <- function(v) {
       ifelse(is.na(v), "NA", paste(match(v, keys), v, sep = "  "))
     }

@@ -79,6 +79,19 @@ test_that("metadata scales retain Seurat colours and separate expression guides"
   expect_true(all(c("nCount_RNA", "Expression level", "PCA") %in% labels))
 })
 
+test_that("cluster labels retain their IDs on the map and in the legend", {
+  obj <- layer_test_object()
+  codes <- rep(c(0L, 2L, 5L), length.out = ncol(obj))
+  for (group.by in c("seurat_clusters", "cluster_factor")) {
+    obj[[group.by]] <- if (group.by == "seurat_clusters") codes else factor(codes)
+    p <- FeatureLayerPlot(obj, "LYZ", group.by, reduction = "pca")
+    centres <- Filter(function(l) inherits(l$geom, "GeomLabel"), p$layers)[[1]]$data
+    expect_identical(centres$id, as.character(centres$group))
+    scale <- ggplot2::ggplot_build(p)$plot$scales$get_scales("colour")
+    expect_equal(as.character(scale$get_labels()), c("0", "2", "5"))
+  }
+})
+
 test_that("spacing and the embedding marker preserve non-overlapping geometry", {
   obj <- layer_test_object()
   features <- c("LYZ", "MS4A1", "CD3E", "NKG7")

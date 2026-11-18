@@ -1,4 +1,4 @@
-# Run after installing Seurcery 0.90 and Seurat:
+# Run after installing Seurcery, Seurat and the PBMC3K data package (see README).
 # Rscript examples/feature-layers.R feature-layers.pdf
 # By default, the PDF is saved in the current directory.
 
@@ -8,18 +8,18 @@ suppressPackageStartupMessages({
   library(Seurcery)
 })
 
-data("pbmc_small", package = "SeuratObject")
-rds <- pbmc_small
-rds$seurat_clusters <- Idents(rds)
-gl <- c("LYZ", "MS4A1", "CD3E", "NKG7")
-pal <- setNames(c("#3FA55E", "#50B5D8", "#EA8350"), levels(rds$seurat_clusters))
+data("pbmc3k.final", package = "pbmc3k.SeuratData")
+rds <- SeuratObject::UpdateSeuratObject(pbmc3k.final)
+gl <- c("CD3D", "NKG7", "MS4A1", "LYZ")
+clusters <- levels(rds$seurat_clusters)
+pal <- setNames(grDevices::hcl.colors(length(clusters), "Dark 3"), clusters)
 
 plots <- list(
-  categorical = FeatureLayerPlot(
-    rds, gl, group.by = "seurat_clusters", reduction = "pca", assay = "RNA"
+  umap = FeatureLayerPlot(
+    rds, gl, group.by = "seurat_clusters", reduction = "umap", assay = "RNA"
   ),
-  continuous = FeatureLayerPlot(
-    rds, gl, group.by = "nCount_RNA", reduction = "pca", assay = "RNA"
+  pca = FeatureLayerPlot(
+    rds, gl, group.by = "seurat_clusters", reduction = "pca", assay = "RNA"
   ),
   manual_color = FeatureLayerPlot(
     rds, gl, group.by = "seurat_clusters", reduction = "pca",

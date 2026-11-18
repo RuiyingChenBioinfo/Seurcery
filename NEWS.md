@@ -16,8 +16,9 @@
   zero, and report ambiguous gene and cell matches across normalized layers.
 * Keep dot summaries visible when group means are equal and align dots and
   significance labels with their violins when split groups are missing.
-* Add function documentation, a v0.90 tutorial, a reproducible `pbmc_small`
-  example, and regression coverage.
+* Display `seurat_clusters` with its original cluster IDs on the map and legend.
+* Use the processed `pbmc3k.final` dataset in the tutorial and show each of
+  the three plotting functions in the README.
 
 # Seurcery 0.8.7
 
