@@ -16,6 +16,7 @@
   zero, and report ambiguous gene and cell matches across normalized layers.
 * Keep dot summaries visible when group means are equal and align dots and
   significance labels with their violins when split groups are missing.
+* Remove white seams from the average expression colorbar in `geom_dot_gradient()`.
 * Display `seurat_clusters` with its original cluster IDs on the map and legend.
 * Use the processed `pbmc3k.final` dataset in the tutorial and show each of
   the three plotting functions in the README.

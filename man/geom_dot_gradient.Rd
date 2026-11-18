@@ -95,8 +95,7 @@ percentage size guide.}
 
 \item{guide_label_size}{Text size for guide labels.}
 
-\item{guide_bar_n}{Number of tiles used to draw the average expression guide
-bar.}
+\item{guide_bar_n}{Number of colors sampled for the average expression guide bar.}
 
 \item{guide_bar_low}{Low color for the average expression guide bar.}
 

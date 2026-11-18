@@ -60,6 +60,18 @@ test_that("both addition orders work when dot guides create a patchwork", {
   }
 })
 
+test_that("the average expression guide draws one continuous raster", {
+  out <- gradient_test_plot() + geom_dot_gradient(
+    guide_bar_n = 5, guide_bar_low = "#FF000080", guide_bar_high = "#0000FF40"
+  )
+  grobs <- walk_grobs(render_gradient_plot(out))
+  bars <- Filter(function(g) inherits(g, "rastergrob"), grobs)
+  expect_length(bars, 1)
+  colors <- bars[[1]]$raster
+  expect_equal(dim(colors), c(5L, 1L))
+  expect_equal(as.character(colors)[c(1, 5)], c("#0000FF40", "#FF000080"))
+})
+
 test_that("dots preserve existing size and alpha scales and accept later fill colours", {
   d <- subset(gradient_test_data(), gene == "small")
   p <- ggplot2::ggplot(d, ggplot2::aes(cluster, value, fill = cluster)) +

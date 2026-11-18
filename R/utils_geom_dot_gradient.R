@@ -58,8 +58,7 @@
 #'   percentage size guide.
 #' @param guide_title_size Text size for guide titles.
 #' @param guide_label_size Text size for guide labels.
-#' @param guide_bar_n Number of tiles used to draw the average expression guide
-#'   bar.
+#' @param guide_bar_n Number of colors sampled for the average expression guide bar.
 #' @param guide_bar_low Low color for the average expression guide bar.
 #' @param guide_bar_high High color for the average expression guide bar.
 #' @param y_axis_min Requested lower bound of the expression axis (including
@@ -859,12 +858,11 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   guide_size_df$y <- rev(seq_len(nrow(guide_size_df)))
   guide_size_df$x <- 1
 
-  bar_y <- seq(0, 1, length.out = object$guide_bar_n)
-  guide_bar_df <- data.frame(
-    x = 1,
-    y = bar_y,
-    fill_val = bar_y
+  bar_scale <- ggplot2::scale_fill_gradientn(
+    colours = c(object$guide_bar_low, object$guide_bar_high),
+    limits = c(0, 1)
   )
+  bar_colors <- bar_scale$map(seq(1, 0, length.out = object$guide_bar_n))
 
   guide_plot_size <- ggplot2::ggplot(
     guide_size_df,
@@ -904,18 +902,9 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
       plot.margin = ggplot2::margin(5.5, 12, 5.5, 12)
     )
 
-  guide_plot_bar <- ggplot2::ggplot(
-    guide_bar_df,
-    ggplot2::aes(x = .data$x, y = .data$y)
-  ) +
-    ggplot2::geom_tile(
-      ggplot2::aes(fill = .data$fill_val),
-      height = 1 / object$guide_bar_n,
-      width = 0.28
-    ) +
-    ggplot2::scale_fill_gradientn(
-      colours = c(object$guide_bar_low, object$guide_bar_high),
-      limits = c(0, 1)
+  guide_plot_bar <- ggplot2::ggplot() +
+    ggplot2::annotation_raster(
+      as.matrix(bar_colors), xmin = 0.86, xmax = 1.14, ymin = 0, ymax = 1
     ) +
     ggplot2::annotate(
       "text",
