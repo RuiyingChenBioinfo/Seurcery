@@ -13,7 +13,9 @@
 #' missing-value colour (`grey50` by default); they are never replaced by zero.
 #' Entirely missing metadata or an entirely missing requested feature is an
 #' error. Split Seurat v5 `data.*` layers are read without removing cells whose
-#' requested expression values are all missing.
+#' requested expression values are all missing. If two normalized layers cover
+#' the same requested gene and cell, the function reports the ambiguity.
+#' When all observed expression is zero, points use the first expression colour.
 #'
 #' @param object A Seurat object with normalized expression and a stored reduction.
 #' @param features Character vector of feature names in the normalized data.
@@ -108,10 +110,10 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
   if (!length(layers)) {
     stop("The selected assay needs a normalized data layer.", call. = FALSE)
   }
-  available <- unique(unlist(lapply(layers, function(layer) {
-    SeuratObject::Features(rna, layer = layer)
-  })))
-  missing <- setdiff(features, available)
+  layer.features <- lapply(layers, function(layer) {
+    intersect(features, SeuratObject::Features(rna, layer = layer))
+  })
+  missing <- setdiff(features, unlist(layer.features, use.names = FALSE))
   if (length(missing)) {
     stop("Missing features in normalized data: ", paste(missing, collapse = ", "),
          call. = FALSE)
@@ -140,6 +142,20 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
   }
   # Keep missing expression in split layers instead of removing cells.
   if (inherits(rna, "StdAssay")) {
+    if (length(layers) > 1L) {
+      layer.cells <- lapply(layers, function(layer) {
+        intersect(cells, SeuratObject::Cells(rna, layer = layer))
+      })
+      for (gene in features) {
+        has.gene <- vapply(layer.features, function(x) gene %in% x, logical(1))
+        ids <- unlist(layer.cells[has.gene], use.names = FALSE)
+        dup <- anyDuplicated(ids)
+        if (dup) {
+          stop("Overlapping normalized layers for feature '", gene,
+               "' in cell '", ids[dup], "'.", call. = FALSE)
+        }
+      }
+    }
     expr <- SeuratObject::FetchData(rna, vars = features, cells = cells,
                                     layer = "^data($|[.])", clean = FALSE)
   } else {
@@ -157,6 +173,7 @@ FeatureLayerPlot <- function(object, features, group.by, reduction = "umap",
             "using the scale's missing-value colour.", call. = FALSE)
     expr[bad.expr] <- NA_real_
   }
+  if (all(expr == 0, na.rm = TRUE)) feature.cols <- rep(feature.cols[1L], 2L)
   groups <- meta[cells, group.by]
   continuous <- is.numeric(groups)
   bad.group <- if (continuous) !is.finite(groups) else is.na(groups)

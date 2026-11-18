@@ -365,7 +365,7 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
        facet_vars = unique(c(facet_vars, intersect(input_vars, names(raw_df)))),
        has_fill_mapping = !is.null(mapping$fill),
        fixed_fill = source$aes_params$fill, fill_identity = inherits(fill, "AsIs"),
-       fill_levels = if (is.factor(fill)) levels(fill) else unique(fill))
+       fill_values = unique(fill))
 }
 
 .geom_dot_gradient_levels <- function(x) {
@@ -463,10 +463,6 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
 
   avg_rng <- range(sum_df$avg_expr, na.rm = TRUE)
   avg_den <- avg_rng[2] - avg_rng[1]
-  if (!is.finite(avg_den) || avg_den <= 0) {
-    avg_den <- 1
-  }
-
   q_low_y <- avg_rng[1] + object$low_quantile * avg_den
   q_mid_y <- avg_rng[1] + object$mid_quantile * avg_den
   q_high_y <- avg_rng[1] + object$high_quantile * avg_den
@@ -475,7 +471,7 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
   alpha_mid <- (object$alpha_min + object$alpha_max) / 2
   alpha_high_end <- object$alpha_max
 
-  sum_df$alpha_val <- vapply(
+  sum_df$alpha_val <- if (avg_den == 0) alpha_mid else vapply(
     sum_df$avg_expr,
     function(y) {
       .geom_dot_gradient_interp_alpha_piecewise(
@@ -722,7 +718,7 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
     x_levels <- as.character(group_scale$get_limits())
     x_levels <- x_levels[x_levels %in% as.character(dat$.x)]
     if (!length(x_levels)) x_levels <- .geom_dot_gradient_levels(dat$.x)
-    fill_levels <- .geom_dot_gradient_levels(dat$.fill)
+    fill_levels <- levels(droplevels(as.factor(dat$.fill)))
     # A feature-colored stacked facet has one color per identity, but it is
     # not a split comparison. Keep its original fill for plotting below.
     collapsed <- all(vapply(split(as.character(dat$.fill), dat$.x, drop = TRUE),
@@ -746,16 +742,17 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
     }
     star <- .geom_dot_gradient_build_star_df(dat, x_levels, fill_levels,
                                             collapsed, positions$dot, object)
-    center <- function(df) {
-      value <- as.numeric(group_scale$map(as.character(df$.x)))
-      if (!collapsed && length(fill_levels) > 1L) {
-        value <- value + object$dodge_width *
-          ((match(as.character(df$.fill), fill_levels) - 0.5) / length(fill_levels) - 0.5)
-      }
-      value
+    summary$.group_position <- as.numeric(group_scale$map(as.character(summary$.x)))
+    if (!collapsed && length(fill_levels) > 1L) {
+      offset <- stats::ave(as.integer(summary$.fill), summary$.x, FUN = function(f) {
+        (rank(f) - 0.5) / length(f) - 0.5
+      })
+      summary$.group_position <- summary$.group_position + object$dodge_width * offset
     }
-    summary$.group_position <- center(summary)
-    if (!is.null(star)) star$.group_position <- center(star)
+    if (!is.null(star)) {
+      star <- merge(star, summary[c(".x", ".fill", ".group_position")],
+                    by = c(".x", ".fill"), sort = FALSE)
+    }
     anchor <- data.frame(.group_position = as.numeric(group_scale$map(x_levels)),
                          y_plot = positions$anchor)
 
@@ -796,7 +793,8 @@ ggplot_add.geom_dot_gradient <- function(object, plot, object_name) {
                           size_range = object$size_range, size_zero = object$size_zero,
                           size_power = object$size_power)
   if (extracted$has_fill_mapping && is.null(object$group_cols)) {
-    sum_df$.source_fill <- factor(sum_df$.source_fill, levels = extracted$fill_levels)
+    sum_df$.source_fill <- extracted$fill_values[match(sum_df$.source_fill,
+                                                       as.character(extracted$fill_values))]
   }
   position_mapping <- if (axis == "y") {
     ggplot2::aes(x = .data$.group_position, y = .data$y_plot)

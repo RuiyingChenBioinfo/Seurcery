@@ -200,3 +200,29 @@ test_that("split data layers preserve cell identities and missing layer features
   expect_equal(dots$x, layer_points(baseline)[[2]]$data$x)
   expect_equal(dots$y, layer_points(baseline)[[2]]$data$y)
 })
+
+test_that("all-zero expression uses the low colour and preserves missing values", {
+  obj <- layer_test_object()
+  values <- SeuratObject::LayerData(obj[["RNA"]], layer = "data")
+  values["LYZ", ] <- 0
+  values["LYZ", 1] <- NA_real_
+  SeuratObject::LayerData(obj[["RNA"]], layer = "data") <- values
+  expect_warning(p <- FeatureLayerPlot(obj, "LYZ", "layer_group", reduction = "pca",
+                                       feature.cols = c("#123456", "red")), "1.*missing")
+  scale <- ggplot2::ggplot_build(p)$plot$scales$get_scales("fill")
+  expect_equal(scale$map(c(0, NA_real_)), c("#123456", "grey50"))
+  expect_equal(as.numeric(scale$get_breaks()), 0)
+})
+
+test_that("ambiguous normalized layers identify the overlapping gene and cell", {
+  obj <- layer_test_object()
+  assay <- methods::as(obj[["RNA"]], "Assay5")
+  values <- SeuratObject::LayerData(assay, layer = "data")
+  duplicate <- values[c("LYZ", "MS4A1"), 1:10, drop = FALSE]
+  duplicate[,] <- 5
+  SeuratObject::LayerData(assay, layer = "data.alt") <- duplicate
+  suppressWarnings(obj[["RNA"]] <- assay)
+  expect_error(FeatureLayerPlot(obj, "LYZ", "layer_group", reduction = "pca"),
+               paste0("Overlapping.*LYZ.*", colnames(duplicate)[1]))
+  expect_no_error(FeatureLayerPlot(obj, "NKG7", "layer_group", reduction = "pca"))
+})

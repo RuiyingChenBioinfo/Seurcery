@@ -1,6 +1,6 @@
 # Run after installing Seurcery 0.90 and Seurat:
-# Rscript examples/stacked-gradients.R /path/to/stacked-gradients.pdf
-# Without a path, output is written to R's temporary directory.
+# Rscript examples/stacked-gradients.R stacked-gradients.pdf
+# By default, the PDF is saved in the current directory.
 
 suppressPackageStartupMessages({
   library(Seurat)
@@ -48,9 +48,7 @@ for (flip in c(TRUE, FALSE)) {
 }
 
 args <- commandArgs(trailingOnly = TRUE)
-output <- if (length(args)) args[[1L]] else {
-  file.path(tempdir(), "Seurcery-v0.90-stacked-gradients.pdf")
-}
+output <- if (length(args)) args[[1L]] else "stacked-gradients.pdf"
 grDevices::pdf(output, width = 12, height = 11, onefile = TRUE)
 tryCatch({
   for (name in names(plots)) {

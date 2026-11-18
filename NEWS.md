@@ -12,6 +12,10 @@
   them with zero; report unusable data and invalid spacing with explicit errors.
 * Warn with a count when `geom_dot_gradient()` omits observations with
   non-finite expression or missing group or fill values from dot summaries.
+* Show zero with the lowest expression colour when every selected value is
+  zero, and report ambiguous gene and cell matches across normalized layers.
+* Keep dot summaries visible when group means are equal and align dots and
+  significance labels with their violins when split groups are missing.
 * Add function documentation, a v0.90 tutorial, a reproducible `pbmc_small`
   example, and regression coverage.
 

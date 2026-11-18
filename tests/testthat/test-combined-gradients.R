@@ -1,3 +1,26 @@
+test_that("dots with equal positive means remain visible at the midpoint alpha", {
+  d <- data.frame(group = rep(c("A", "B"), each = 4), value = rep(1:4, 2))
+  p <- ggplot2::ggplot(d, ggplot2::aes(group, value)) + ggplot2::geom_violin()
+  summary <- dot_summary_data(p + geom_dot_gradient(guide = FALSE))
+  expect_equal(summary$pct_expr, c(100, 100))
+  expect_equal(summary$alpha_val, c(0.5, 0.5))
+})
+
+test_that("dots and labels use the displayed splits within each identity", {
+  d <- data.frame(group = rep(c("A", "A", "B"), each = 6),
+                  split = rep(c("v", "u", "u"), each = 6),
+                  value = rep(1:6, 3) + rep(c(0, 8, 16), each = 6))
+  p <- ggplot2::ggplot(d, ggplot2::aes(group, value, fill = split)) + ggplot2::geom_violin()
+  out <- p + geom_dot_gradient(guide = FALSE, sig_test_all = "ttest",
+                               min_avg_pct_diff = 0, sig_cutoffs = c("*" = 1))
+  built <- ggplot2::ggplot_build(out)
+  violins <- unique(ggplot2::ggplot_build(p)$data[[1]][c("x", "fill")])
+  dots <- built$data[[3]][c("x", "fill")]
+  expect_equal(as.numeric(dots$x), as.numeric(violins$x))
+  expect_equal(dots$fill, violins$fill)
+  expect_equal(sort(as.numeric(built$data[[4]]$x)), sort(as.numeric(dots$x)))
+})
+
 test_that("dot summaries are calculated separately for each facet", {
   d <- gradient_test_data()
   d$value[d$gene == "small" & d$cluster == "C1"] <- 0

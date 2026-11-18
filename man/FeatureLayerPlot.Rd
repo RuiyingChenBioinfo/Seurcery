@@ -79,7 +79,9 @@ or expression values produce a counted warning and use the scale's
 missing-value colour (\code{grey50} by default); they are never replaced by zero.
 Entirely missing metadata or an entirely missing requested feature is an
 error. Split Seurat v5 \code{data.*} layers are read without removing cells whose
-requested expression values are all missing.
+requested expression values are all missing. If two normalized layers cover
+the same requested gene and cell, the function reports the ambiguity.
+When all observed expression is zero, points use the first expression colour.
 }
 \examples{
 data("pbmc_small", package = "SeuratObject")

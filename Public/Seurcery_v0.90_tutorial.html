@@ -24,15 +24,20 @@ th { background: #f5f5f5; }
 and dot summaries. This tutorial uses the bundled <code>pbmc_small</code> object
 for reproducible code examples. The larger preview figures use PBMC3K.</p>
 <p><a href="../README.md">README</a> · <a href="../NEWS.md">Release notes</a> ·
-<a href="Seurcery_v0.8.6_tutorial.html">Earlier v0.8.6 tutorial</a></p>
+<a href="Seurcery_v0.8.6_tutorial.html">Archived v0.8.6 tutorial</a></p>
 
 <h2>Installation</h2>
-<p>Use SeuratObject &gt;= 5.0.0 and ggplot2 &gt;= 3.5.0. Install Seurat to run
-the examples below. The <code>grid</code> package is included with R.</p>
-<pre><code>install.packages(c("Seurat", "ggplot2", "patchwork", "rlang"))
-install.packages("Seurcery_0.90.tar.gz", repos = NULL, type = "source")
-
-library(Seurat)
+<p>Install from GitHub, then install Seurat to run the examples below.</p>
+<pre><code>install.packages("remotes")
+remotes::install_github("RuiyingChenBioinfo/Seurcery")
+install.packages("Seurat")</code></pre>
+<p>Alternatively, to install from a downloaded source archive, run the following
+from the directory containing the archive. Feature layers require SeuratObject
+&gt;= 5.0.0 and ggplot2 &gt;= 3.5.0.</p>
+<pre><code>install.packages(c("ggplot2", "SeuratObject", "patchwork", "rlang"))
+install.packages("Seurcery_0.90.tar.gz", repos = NULL, type = "source")</code></pre>
+<p>Load the packages:</p>
+<pre><code>library(Seurat)
 library(ggplot2)
 library(Seurcery)
 packageVersion("Seurcery")
@@ -46,17 +51,17 @@ Expression comes directly from the selected assay's normalized
 <strong>Expression level</strong>.</p>
 <pre><code>data("pbmc_small", package = "SeuratObject")
 rds &lt;- pbmc_small
-rds$cell_type &lt;- Idents(rds)
+rds$seurat_clusters &lt;- Idents(rds)
 gl &lt;- c("LYZ", "MS4A1", "CD3E", "NKG7")
 
 FeatureLayerPlot(
   rds,
   features = gl,
-  group.by = "cell_type",
+  group.by = "seurat_clusters",
   reduction = "pca",
   assay = "RNA"
 )</code></pre>
-<p>The bundled object already has PCA coordinates. For your object with UMAP
+<p>The bundled object already has PCA coordinates. Its identities are cluster labels. For your object with UMAP
 coordinates, set <code>reduction = "umap"</code> (the default). The function
 uses the first two dimensions of an existing reduction; it does not compute
 PCA or UMAP. A lower-left marker uses two equal, perpendicular black lines and
@@ -74,16 +79,16 @@ automatically displays the selected embedding name.</p>
 <p>Characters and factors use Seurat's default discrete colors. The left title
 is the metadata column name. To customize colors, name the palette with the
 category levels and pass a manual scale to <code>group.scale</code>.</p>
-<pre><code>pal &lt;- setNames(c("#3FA55E", "#50B5D8", "#EA8350"), levels(rds$cell_type))
+<pre><code>pal &lt;- setNames(c("#3FA55E", "#50B5D8", "#EA8350"), levels(rds$seurat_clusters))
 
 FeatureLayerPlot(
-  rds, gl, group.by = "cell_type", reduction = "pca",
+  rds, gl, group.by = "seurat_clusters", reduction = "pca",
   group.scale = scale_color_manual(values = pal)
 )
 
 # A fill scale updates the same reference map and legend.
 FeatureLayerPlot(
-  rds, gl, group.by = "cell_type", reduction = "pca",
+  rds, gl, group.by = "seurat_clusters", reduction = "pca",
   group.scale = scale_fill_manual(values = pal)
 )</code></pre>
 
@@ -116,7 +121,7 @@ lower values. This applies to gene expression and numeric metadata.
 layout more compact. Invalid gaps cause an error before plotting, keeping the
 panels and their reserved title space separate.</p>
 <pre><code>p &lt;- FeatureLayerPlot(
-  rds, gl, group.by = "cell_type", reduction = "pca",
+  rds, gl, group.by = "seurat_clusters", reduction = "pca",
   order = TRUE, gap.x = 0.06, gap.y = 0.11, title.gap = 0.04
 )
 ggsave("feature-layers.pdf", p, width = 180, height = 101, units = "mm")</code></pre>
@@ -133,15 +138,15 @@ not fall back to counts.</p>
 with a warning. If the embedding and assay have no shared cells, plotting
 stops with an error.</p>
 <p>To generate the categorical, continuous, manual-color, and compact examples
-as one PDF, run:</p>
-<pre><code>Rscript examples/feature-layers.R /path/to/feature-layers.pdf</code></pre>
+as one PDF, run from the repository root:</p>
+<pre><code>Rscript examples/feature-layers.R feature-layers.pdf</code></pre>
 
 <h2>Violin and dot gradients</h2>
 <p>The existing gradient functions remain available. Use a named palette to
 associate each gene with its color in a stacked violin plot.</p>
 <pre><code>gene_cols &lt;- setNames(c("#3FA55E", "#50B5D8", "#EA8350", "#8B72BE"), gl)
 p &lt;- Seurat::VlnPlot(
-  rds, features = gl, group.by = "cell_type", pt.size = 0,
+  rds, features = gl, group.by = "seurat_clusters", pt.size = 0,
   stack = TRUE, flip = TRUE, add.noise = FALSE
 ) + scale_fill_manual(values = gene_cols)
 
@@ -152,7 +157,7 @@ orders are supported. For exact expressed percentages at zero, use
 <code>add.noise = FALSE</code> when constructing the Seurat violin plot.
 The <code>*_quantile</code> arguments are fractions of the plotted range,
 not empirical quantiles.</p>
-<pre><code>Rscript examples/stacked-gradients.R /path/to/stacked-gradients.pdf</code></pre>
+<pre><code>Rscript examples/stacked-gradients.R stacked-gradients.pdf</code></pre>
 
 <h2>Contact</h2>
 <p>Ruiying Chen (<a href="mailto:chenruiying21@mails.ucas.ac.cn">chenruiying21@mails.ucas.ac.cn</a>).</p>

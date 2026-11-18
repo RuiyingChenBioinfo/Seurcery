@@ -8,7 +8,7 @@ alongside the existing violin and dot gradients.
 
 See the [v0.90 tutorial](Public/Seurcery_v0.90_tutorial.html), the examples below,
 and [NEWS.md](NEWS.md). The [v0.8.6 tutorial](Public/Seurcery_v0.8.6_tutorial.html)
-is retained for the earlier release.
+is retained as an archive. Its processed input, `PBMC3k_Test.rds`, is not bundled.
 
 <details> <summary> Note about package development </summary>
 
@@ -18,9 +18,16 @@ Seurcery is actively being developed. You may occasionally encounter bugs or min
 
 ## Installation
 
-Install the v0.90 source archive after installing its dependencies (`grid` is
-included with R). `FeatureLayerPlot()` requires SeuratObject >= 5.0.0 and
-ggplot2 >= 3.5.0:
+Install from GitHub:
+
+```r
+install.packages("remotes")
+remotes::install_github("RuiyingChenBioinfo/Seurcery")
+```
+
+Alternatively, if you downloaded `Seurcery_0.90.tar.gz`, run the following
+from the directory containing the archive. `FeatureLayerPlot()` requires
+SeuratObject >= 5.0.0 and ggplot2 >= 3.5.0:
 
 ```r
 install.packages(c("ggplot2", "SeuratObject", "patchwork", "rlang"))
@@ -46,13 +53,13 @@ library(Seurcery)
 
 data("pbmc_small", package = "SeuratObject")
 rds <- pbmc_small
-rds$cell_type <- Idents(rds)
+rds$seurat_clusters <- Idents(rds)
 gl <- c("LYZ", "MS4A1", "CD3E", "NKG7")
 
 FeatureLayerPlot(
   rds,
   features = gl,
-  group.by = "cell_type",
+  group.by = "seurat_clusters",
   reduction = "pca",
   assay = "RNA"
 )
@@ -63,16 +70,19 @@ The selected reduction must already exist in the object; its first two
 dimensions are used. The lower-left marker has two equal, perpendicular black
 lines and is labeled automatically, for example **UMAP** or **PCA**.
 
+The preview uses annotated PBMC3K cells and UMAP. The runnable example above
+uses the smaller `pbmc_small` object and its cluster identities.
+
 ![FeatureLayerPlot on PBMC3K UMAP coordinates](Public/FeatureLayerPlot_UMAP.png)
 
 Categorical metadata uses Seurat's default discrete colors. Pass a named manual
 scale to `group.scale` to update both the reference points and their legend:
 
 ```r
-pal <- setNames(c("#3FA55E", "#50B5D8", "#EA8350"), levels(rds$cell_type))
+pal <- setNames(c("#3FA55E", "#50B5D8", "#EA8350"), levels(rds$seurat_clusters))
 
 FeatureLayerPlot(
-  rds, gl, group.by = "cell_type", reduction = "pca",
+  rds, gl, group.by = "seurat_clusters", reduction = "pca",
   group.scale = scale_color_manual(values = pal)
 )
 
@@ -101,7 +111,7 @@ compact; invalid gaps produce an error before plotting. For example:
 
 ```r
 FeatureLayerPlot(
-  rds, gl, group.by = "cell_type", reduction = "pca",
+  rds, gl, group.by = "seurat_clusters", reduction = "pca",
   order = TRUE, gap.x = 0.06, gap.y = 0.11, title.gap = 0.04
 )
 ```
@@ -115,23 +125,25 @@ Zero expression is valid. Embedding cells absent from the selected assay are
 omitted from all panels with a warning; no shared cells produces an error.
 
 For a reproducible PDF containing categorical, continuous, manual-color, and
-compact examples, run after installing Seurat:
+compact examples, run from the repository root after installing Seurat:
 
 ```sh
-Rscript examples/feature-layers.R /path/to/feature-layers.pdf
+Rscript examples/feature-layers.R feature-layers.pdf
 ```
 
 ## Stacked violin gradients
 
-The following uses 15 genes from your Seurat object. Name the palette with `gl`
+The following uses 15 genes from `pbmc_small`. Name the palette with `gl`
 so that each color remains associated with its gene if the plotting order changes.
 
 ```r
 library(ggplot2)
 library(Seurcery)
 
-# rds: your Seurat object; gl: 15 unique gene names present in rds
-stopifnot(length(gl) == 15L, !anyDuplicated(gl))
+data("pbmc_small", package = "SeuratObject")
+rds <- pbmc_small
+rds$seurat_clusters <- SeuratObject::Idents(rds)
+gl <- head(rownames(rds), 15)
 gene_cols <- setNames(
   c(rep("#3FA55E", 2), rep("#50B5D8", 5), rep("#EA8350", 8)),
   gl
@@ -143,7 +155,8 @@ p <- Seurat::VlnPlot(
   group.by = "seurat_clusters",
   pt.size = 0,
   stack = TRUE,
-  flip = TRUE
+  flip = TRUE,
+  add.noise = FALSE
 ) +
   scale_fill_manual(values = gene_cols)
 
@@ -192,17 +205,17 @@ anchors use the panel's plotted density range; dot anchors use the range of
 group average expression within that panel. For example, `mid_quantile = 0.5`
 means the midpoint of the relevant range.
 
-For a reproducible example using Seurat's `pbmc_small`, run:
+For a reproducible example using `pbmc_small`, run from the repository root:
 
 ```sh
-Rscript examples/stacked-gradients.R /path/to/stacked-gradients.pdf
+Rscript examples/stacked-gradients.R stacked-gradients.pdf
 ```
 
 The script plots 15 genes with both flip settings and both gradient orders,
 with and without dot guides.
 
 ## Citation
-Chen, R. (2026). Seurcery: An R package designed for further analysis and visualization based on utilities of R package Seurat (Version v0.90) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22953630
+Chen, R. (2026). Seurcery: An R package designed for further analysis and visualization based on utilities of R package Seurat [Computer software]. Zenodo (all versions). https://doi.org/10.5281/zenodo.18962435
 
 ## Contact
 * Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
