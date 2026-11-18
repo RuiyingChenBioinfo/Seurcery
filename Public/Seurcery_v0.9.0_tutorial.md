@@ -194,4 +194,4 @@ Rscript examples/stacked-gradients.R stacked-gradients.pdf
 
 ## Contact
 
-Ruiying Chen (<chenruiying21@mails.ucas.ac.cn>).
+Ruiying Chen (<986802552@qq.com>).

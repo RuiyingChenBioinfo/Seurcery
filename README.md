@@ -113,4 +113,4 @@ manual colors, panel spacing, and combining the two gradients.
 Chen, R. (2026). Seurcery: An R package designed for further analysis and visualization based on utilities of R package Seurat [Computer software]. Zenodo (all versions). https://doi.org/10.5281/zenodo.18962435
 
 ## Contact
-* Ruiying Chen (chenruiying21@mails.ucas.ac.cn)
+* Ruiying Chen (986802552@qq.com)
